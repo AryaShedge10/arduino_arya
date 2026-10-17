@@ -96,6 +96,9 @@
     .dpad button.held { background: #166534; border-color: #4ade80; }
     .dpad button.stop { background: #7f1d1d; border-color: #f87171; font-size: 1rem; font-weight: 800; }
     .dpad button:disabled { opacity: .35; cursor: not-allowed; }
+    .startbtn, .stopbtn { padding: .7rem 1.3rem; border: 0; border-radius: 999px; font: 800 .95rem/1 system-ui, sans-serif; letter-spacing: .05em; color: #fff; cursor: pointer; }
+    .startbtn { background: #166534; } .stopbtn { background: #b91c1c; }
+    .startbtn:disabled { opacity: .4; cursor: not-allowed; }
     .manual .note { color: #93a2b8; font-size: .78rem; margin: 0; }
     .manual .live { font: .85rem/1 ui-monospace, monospace; color: #93a2b8; }
     @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .video { min-height: 180px; } .log-grid { grid-template-columns: 1fr; } }
@@ -172,8 +175,12 @@
             <button type="button" data-dir="right" aria-label="Turn right">►</button>
             <span></span><button type="button" data-dir="down" aria-label="Reverse">▼</button><span></span>
           </div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+            <button id="manual-start" type="button" class="startbtn">START motors (password)</button>
+            <button id="manual-stop2" type="button" class="stopbtn">STOP</button>
+          </div>
           <span class="live" id="manual-live">manual: off</span>
-          <p class="note">1) choose MANUAL (password), 2) press START, 3) hold a button or W A S D / arrow keys to drive. Release and it stops within half a second. Speed follows the Max speed slider and ramps smoothly. Camera obstacle detection is <b>not</b> enforced in manual mode: you are the safety.</p>
+          <p class="note">1) choose MANUAL (password), 2) press START motors (password), 3) hold a button or W A S D / arrow keys to drive. To go back to automatic line following: press AUTO (this stops the motors), then START. Release and it stops within half a second. Speed follows the Max speed slider and ramps smoothly. Camera obstacle detection is <b>not</b> enforced in manual mode: you are the safety.</p>
         </div>
       </section>
       <section class="card">
@@ -498,6 +505,8 @@
       $('mode-manual').classList.toggle('active', driveMode === 'manual');
       const can = manualActive();
       document.querySelectorAll('#dpad button').forEach(b => { b.disabled = !can; });
+      $('manual-start').disabled = motorsOn;
+      $('manual-start').textContent = motorsOn ? 'MOTORS ON' : 'START motors (password)';
       if (!can && held.size) releaseAll();
       $('manual-live').textContent = can ? $('manual-live').textContent : 'manual: off';
     }
@@ -532,6 +541,8 @@
         b.addEventListener(ev, () => { held.delete(b.dataset.dir); refreshDrive(); });
     });
     $('manual-stop').addEventListener('click', () => { releaseAll(); setMotors(false); });
+    $('manual-stop2').addEventListener('click', () => { releaseAll(); setMotors(false); });
+    $('manual-start').addEventListener('click', () => { if (!motorsOn) setMotors(true); });
     const KEYS = { w: 'up', arrowup: 'up', s: 'down', arrowdown: 'down', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right' };
     document.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) && document.activeElement.type !== 'range') return;

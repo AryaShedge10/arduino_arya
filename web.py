@@ -198,7 +198,7 @@ def api_mode():
     """Switch between automatic line following and manual driving.
 
     Going to MANUAL needs the dashboard password (it lets you drive the rover
-    yourself). Going back to AUTO never does.
+    yourself). Going back to AUTO never does, and it stops the motors.
     """
     if request.method == 'POST':
         body = request.get_json(silent=True) or {}
@@ -208,7 +208,12 @@ def api_mode():
             if not ok:
                 msg = 'too many wrong passwords, wait' if status == 429 else 'wrong password'
                 return jsonify({'error': msg}), status
-        write_state(mode=want)
+        # Leaving manual also stops the motors: otherwise the rover would start
+        # line-following the instant AUTO is chosen. START (password) runs auto.
+        if want == 'auto':
+            write_state(mode='auto', enabled=False)
+        else:
+            write_state(mode='manual')
         log.info('[API] mode %s from %s', want, request.remote_addr)
     return _control_json()
 
