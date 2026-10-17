@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>AGV Detections · line · obstacle · Arduino</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font: 16px/1.5 system-ui, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      --bg-card: #161b22;
+      --bg-stat: #0b1118;
+      --border: #30363d;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; padding: 1rem clamp(1rem, 3vw, 2rem);
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { margin: 0; font-size: 1.25rem; letter-spacing: .04em; }
+    h2 { margin: 0 0 .75rem; font-size: .9rem; text-transform: uppercase;
+         letter-spacing: .08em; color: var(--muted); }
+    main {
+      max-width: 1480px; margin: auto;
+      padding: 1.25rem clamp(1rem, 3vw, 2rem);
+      display: grid; gap: 1rem;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .video-wrap {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+    }
+    .video-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .video-wrap .crosshair {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    .video-wrap .centroid-dot {
+      position: absolute; width: 14px; height: 14px;
+      border-radius: 50%; background: #ff3b30;
+      border: 2px solid #fff; transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px rgba(255,59,48,.6);
+      display: none;
+    }
+    .video-wrap .centroid-dot.lost { background: var(--bad); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+    /* The canvas overlay sits ON TOP of the <img> and draws a
+       crosshair/reticle at the centroid (cx, cy). The <img> already
+       contains the per-frame cv2 drawing done on the Jetson. */
+
+    .stats {
+      display: grid; gap: .75rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .stat {
+      padding: .75rem; background: var(--bg-stat);
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .stat .label {
+      display: block; font-size: .72rem; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted);
+    }
+    .stat .value {
+      display: block; margin-top: .25rem; font-size: 1.1rem; font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-all;
+    }
+    .value.ok { color: var(--ok); }
+    .value.warn { color: var(--warn); }
+    .value.bad { color: var(--bad); }
+    .value.muted { color: var(--muted); }
+    .value.big { font-size: 1.6rem; font-family: ui-monospace, monospace; }
+
+    .direction-bar { display: flex; gap: .25rem; align-items: stretch; height: 32px; }
+    .direction-bar .seg {
+      flex: 1; border-radius: 4px; background: var(--bg-stat);
+      display: flex; align-items: center; justify-content: center;
+      font: .75rem/1 ui-monospace, monospace; color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .direction-bar .seg.left   { color: #fbbf24; border-color: #fbbf24; }
+    .direction-bar .seg.center { color: #4ade80; border-color: #4ade80; }
+    .direction-bar .seg.right  { color: #fbbf24; border-color: #fbbf24; }
+    .direction-bar .seg.lost   { color: #f87171; border-color: #f87171; }
+    .direction-bar .seg.active { background: rgba(88,166,255,.18); }
+
+    .full { grid-column: 1 / -1; }
+    .pill { padding: .25rem .65rem; border-radius: 999px;
+            background: var(--bg-stat); font-size: .8rem;
+            border: 1px solid var(--border); }
+    .pill.ok { background: rgba(74, 222, 128, .15); border-color: var(--ok); color: var(--ok); }
+    .pill.warn { background: rgba(251, 191, 36, .15); border-color: var(--warn); color: var(--warn); }
+    .pill.bad { background: rgba(248, 113, 113, .15); border-color: var(--bad); color: var(--bad); }
+    .dot { display: inline-block; width: .6rem; height: .6rem;
+           border-radius: 50%; margin-right: .4rem; vertical-align: middle;
+           background: var(--muted); }
+    .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.stale { background: var(--warn); }
+    .dot.offline { background: var(--bad); }
+
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { padding: .35rem .5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: .78rem;
+         text-transform: uppercase; letter-spacing: .04em; }
+
+    .centroid-overlay { position: relative; }
+    .centroid-overlay canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── Guidance banner — the human-readable "what should the AGV do" line.
+       Background colour and animation change with the direction class. */
+    .guidance {
+      display: flex; align-items: center; gap: 1.5rem;
+      padding: 1.5rem 1.75rem;
+      border-radius: 14px; border: 2px solid var(--border);
+      transition: background-color .25s ease, border-color .25s ease;
+    }
+    .guidance-icon {
+      font-size: 3.5rem; line-height: 1;
+      width: 5rem; text-align: center;
+      text-shadow: 0 2px 6px rgba(0,0,0,.4);
+    }
+    .guidance-headline {
+      font-size: 2.6rem; font-weight: 800; letter-spacing: .03em;
+      line-height: 1.1;
+    }
+    .guidance-sub {
+      font-size: 1rem; color: var(--muted); margin-top: .25rem;
+      font-family: ui-monospace, monospace;
+    }
+    .guidance.center   { background: rgba(74, 222, 128, .12); border-color: var(--ok); }
+    .guidance.center   .guidance-headline { color: var(--ok); }
+    .guidance.left,
+    .guidance.right    { background: rgba(251, 191, 36, .12); border-color: var(--warn); }
+    .guidance.left     .guidance-headline { color: var(--warn); }
+    .guidance.right    .guidance-headline { color: var(--warn); }
+    .guidance.caution  { background: rgba(251, 191, 36, .12); border-color: var(--warn); }
+    .guidance.caution  .guidance-headline { color: var(--warn); }
+    .guidance.lost,
+    .guidance.unavail  {
+      background: rgba(248, 113, 113, .15); border-color: var(--bad);
+      animation: pulse-lost 1.2s ease-in-out infinite;
+    }
+    .guidance.lost     .guidance-headline,
+    .guidance.unavail  .guidance-headline { color: var(--bad); }
+    @keyframes pulse-lost {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, .45); }
+      50%      { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AGV DETECTIONS <span id="live-dot" class="dot"></span>
+        <small style="color: var(--muted); font-weight: 400; font-size: .8rem;">
+        · line · obstacle (camera) · Arduino</small></h1>
+    <span>
+      <a href="/" style="color: var(--accent); margin-right: 1rem;">← dashboard</a>
+      <span id="conn-pill" class="pill">connecting…</span>
+    </span>
+  </header>
+
+  <main>
+    <!-- Big human-readable guidance banner — updates every poll -->
+    <section id="guidance-banner" class="card guidance center" style="grid-column: 1 / -1;">
+      <div class="guidance-icon" id="g-icon">↑</div>
+      <div class="guidance-text">
+        <div class="guidance-headline" id="g-headline">GO FORWARD</div>
+        <div class="guidance-sub" id="g-sub">awaiting camera&hellip;</div>
+      </div>
+    </section>
+
+    <!-- LEFT: live annotated frame with overlaid centroid reticle -->
+    <section class="card">
+      <h2>Annotated camera <span id="backend-label" class="value muted"
+        style="font-size: .85rem; margin-left: .5rem;"></span></h2>
+      <div class="video-wrap centroid-overlay">
+        <img id="cam" src="/frame.jpg" alt="Live annotated frame">
+        <canvas id="overlay" width="1280" height="720"></canvas>
+      </div>
+      <p style="margin: .65rem 0 0; color: var(--muted); font-size: .8rem;">
+        Centroid is drawn over the live frame by reading status.json
+        every 500&nbsp;ms. The red dot is the centre of the largest yellow
+        contour; the green vertical line is the frame centre
+        (<code>STEER_DEADZONE = {{ project_config.STEER_DEADZONE }}px</code>).
+      </p>
+    </section>
+
+    <!-- RIGHT: live state tiles -->
+    <section class="card">
+      <h2>Line-following verdict</h2>
+      <div class="direction-bar">
+        <div id="seg-left"   class="seg left">LEFT</div>
+        <div id="seg-center" class="seg center">CENTER</div>
+        <div id="seg-right"  class="seg right">RIGHT</div>
+        <div id="seg-lost"   class="seg lost">LOST</div>
+      </div>
+      <div class="stats" style="margin-top: 1rem;">
+        <div class="stat">
+          <span class="label">Direction</span>
+          <span id="v-direction" class="value big">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Camera command</span>
+          <span id="v-camcmd" class="value big">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Centroid (cx, cy)</span>
+          <span id="v-centroid" class="value">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Error from centre (px)</span>
+          <span id="v-error" class="value">—</span>
+        </div>
+        <div class="stat full" style="background: #0e1a2b;">
+          <span class="label" style="color: #9ec5ff;">Final motor command</span>
+          <span id="v-final" class="value big" style="color:#fff;">—</span>
+          <div id="v-reason" style="margin-top:.35rem; color:#cfe2ff; font-size:.85rem;">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECOND ROW: LiDAR + STM32 status -->
+    <section class="card">
+      <h2>Obstacle · camera</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Status</span>
+          <span id="v-lidar-status" class="value">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Distance</span>
+          <span id="v-lidar-distance" class="value">—</span>
+        </div>
+        <div class="stat full">
+          <span class="label">Connection</span>
+          <span id="v-lidar-link" class="value">—</span>
+          <div id="v-lidar-error" style="color:#fca5a5; font-size:.75rem;
+                                         margin-top:.35rem;"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Arduino · motor link</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Connected</span>
+          <span id="v-stm32-link" class="value">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">ACK age</span>
+          <span id="v-stm32-ack" class="value">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Firmware</span>
+          <span id="v-stm32-fw" class="value">—</span>
+        </div>
+        <div class="stat">
+          <span class="label">Encoder L · R</span>
+          <span id="v-stm32-enc" class="value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FULL WIDTH: direction transitions over the last few ticks -->
+    <section class="card full">
+      <h2>Recent directions (live feed)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>tick</th><th>direction</th><th>camera cmd</th>
+            <th>centroid</th><th>error (px)</th><th>final cmd</th>
+            <th>reason</th>
+          </tr>
+        </thead>
+        <tbody id="recent">
+          <tr><td colspan="7" style="color: var(--muted);">Waiting…</td></tr>
+        </tbody>
+      </table>
+      <p style="color: var(--muted); font-size: .75rem; margin: .6rem 0 0;">
+        Last 10 ticks, newest first. The wobbling synthetic line should
+        cause direction to flip between LEFT and RIGHT around the centre.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    // ── state ──
+    const DEADZONE = {{ project_config.STEER_DEADZONE }};
+    const FRAME_W = 1280, FRAME_H = 720;
+    let tickCount = 0;
+    const recent = [];
+
+    // Human-readable guidance for each direction. The icon is shown on
+    // the left of the banner; the headline is the big text. The CSS
+    // class on the banner drives the colour.
+    const GUIDANCE = {
+      CENTER:      { icon: '↑', text: 'GO FORWARD',  cls: 'center'  },
+      LEFT:        { icon: '↰', text: 'TURN LEFT',   cls: 'left'    },
+      RIGHT:       { icon: '↱', text: 'TURN RIGHT',  cls: 'right'   },
+      CAUTION:     { icon: '⚠', text: 'CAUTION',     cls: 'caution' },
+      LOST:        { icon: '✖', text: 'LINE LOST',   cls: 'lost'    },
+      UNAVAILABLE: { icon: '?', text: 'NO CAMERA',   cls: 'unavail' },
+    };
+    function updateGuidance(dir, errorPx, decisionReason) {
+      const g = GUIDANCE[dir] || { icon: '·', text: '—', cls: '' };
+      const banner = $('guidance-banner');
+      banner.className = 'card guidance ' + g.cls;
+      $('g-icon').textContent = g.icon;
+      $('g-headline').textContent = g.text;
+      // Sub-line: error from centre + decision reason. Keeps the
+      // dashboard self-explanatory without needing to read the table.
+      const errPart = (errorPx != null && dir !== 'LOST' && dir !== 'UNAVAILABLE')
+        ? `error: ${errorPx >= 0 ? '+' : ''}${errorPx}px · `
+        : '';
+      $('g-sub').textContent = errPart + (decisionReason || '');
+    }
+
+    // ── helpers ──
+    const $ = (id) => document.getElementById(id);
+    function pill(id, text, cls) {
+      const el = $(id);
+      el.textContent = text;
+      el.className = 'pill ' + (cls || '');
+    }
+    function connText(connected, fresh) {
+      if (!fresh) return { text: 'STALE · LAST ' + (connected ? 'CONNECTED' : 'DISCONNECTED'), cls: 'warn' };
+      return connected
+        ? { text: 'CONNECTED', cls: 'ok' }
+        : { text: 'DISCONNECTED', cls: 'bad' };
+    }
+
+    // ── canvas overlay (centroid reticle on top of the <img>) ──
+    const canvas = $('overlay');
+    const ctx = canvas.getContext('2d');
+    function drawOverlay(centroid, direction) {
+      ctx.clearRect(0, 0, FRAME_W, FRAME_H);
+      // frame centre
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(FRAME_W / 2, 0);
+      ctx.lineTo(FRAME_W / 2, FRAME_H);
+      ctx.stroke();
+      // deadzone band
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(FRAME_W / 2 - DEADZONE, 0);
+      ctx.lineTo(FRAME_W / 2 - DEADZONE, FRAME_H);
+      ctx.moveTo(FRAME_W / 2 + DEADZONE, 0);
+      ctx.lineTo(FRAME_W / 2 + DEADZONE, FRAME_H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // centroid crosshair
+      if (centroid) {
+        const [cx, cy] = centroid;
+        ctx.strokeStyle = 'rgba(255, 59, 48, 0.95)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - 35, cy); ctx.lineTo(cx + 35, cy);
+        ctx.moveTo(cx, cy - 35); ctx.lineTo(cx, cy + 35);
+        ctx.stroke();
+      }
+      // border tint
+      ctx.strokeStyle = direction === 'LOST' || direction === 'UNAVAILABLE'
+        ? 'rgba(248, 113, 113, .6)' : 'rgba(74, 222, 128, .25)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, FRAME_W - 6, FRAME_H - 6);
+    }
+
+    // ── main render ──
+    function render(d) {
+      const fresh = d.updated_at
+        ? (Date.now() / 1000 - d.updated_at) < 3
+        : false;
+      const liveDot = $('live-dot');
+      liveDot.className = 'dot ' + (fresh ? 'live' : 'stale');
+      pill('conn-pill', fresh ? 'LIVE' : 'STALE',
+           fresh ? 'ok' : 'warn');
+
+      $('backend-label').textContent = d.camera_backend
+        ? `[${d.camera_backend}]` : '';
+
+      // Direction segment
+      const dirs = ['LEFT', 'CENTER', 'RIGHT', 'LOST'];
+      for (const dir of dirs) $('seg-' + dir.toLowerCase())
+        .classList.remove('active');
+      const dir = d.camera_direction || '';
+      const segId = 'seg-' + (dir.toLowerCase());
+      const seg = $(segId);
+      if (seg) seg.classList.add('active');
+
+      $('v-direction').textContent = dir || '—';
+      $('v-direction').className = 'value big ' + (
+        dir === 'CENTER' ? 'ok'
+        : (dir === 'LEFT' || dir === 'RIGHT') ? 'warn'
+        : (dir === 'LOST' || dir === 'UNAVAILABLE') ? 'bad'
+        : 'muted'
+      );
+
+      $('v-camcmd').textContent = d.camera_command || '—';
+
+      // Centroid + error from status.json (publisher added these so the
+      // detections page can show the raw detection, not just the verdict).
+      const cx = d.line_centroid_x;
+      const cy = d.line_centroid_y;
+      const detected = (cx != null && cx >= 0 && cy != null && cy >= 0);
+      if (detected) {
+        $('v-centroid').textContent = `(${cx}, ${cy})`;
+        $('v-centroid').className = 'value ok';
+      } else {
+        $('v-centroid').textContent = 'no detection';
+        $('v-centroid').className = 'value bad';
+      }
+      const errPx = d.line_error_px;
+      $('v-error').textContent = detected
+        ? `${errPx >= 0 ? '+' : ''}${errPx} px`
+        : '—';
+      $('v-error').className = 'value ' + (
+        !detected ? 'muted'
+        : Math.abs(errPx) <= DEADZONE ? 'ok'
+        : 'warn'
+      );
+
+      // Big readable guidance banner — also drives the colour/animation.
+      // Must run AFTER detected/errPx are defined (this used to be
+      // earlier and threw a ReferenceError that froze the rest of
+      // render() — so the right-side tiles all stayed at "—").
+      updateGuidance(dir, detected ? errPx : null, d.decision_reason);
+
+      // Centroid overlay (sits on top of the <img>; we use the natural
+      // pixel coords because canvas.width === FRAME_W === naturalWidth).
+      drawOverlay(detected ? [cx, cy] : null, dir);
+
+      // Camera/Final/Reason
+      $('v-final').textContent = d.final_command || '—';
+      $('v-reason').textContent = d.decision_reason || '—';
+
+      // LiDAR
+      const statusEl = $('v-lidar-status');
+      statusEl.textContent = d.lidar_status || '—';
+      statusEl.className = 'value ' + (
+        d.lidar_status === 'CLEAR' ? 'ok'
+        : d.lidar_status === 'SLOW' ? 'warn'
+        : d.lidar_status === 'STOP' ? 'bad' : 'muted'
+      );
+      $('v-lidar-distance').textContent =
+        d.lidar_distance_mm > 0
+          ? `${Math.round(d.lidar_distance_mm)} mm` : '—';
+      const lC = connText(d.lidar_connected, fresh);
+      $('v-lidar-link').textContent = lC.text;
+      $('v-lidar-link').className = 'value ' + (
+        d.lidar_connected ? 'ok' : (fresh ? 'bad' : 'warn'));
+      $('v-lidar-error').textContent = d.lidar_error || '';
+
+      // STM32
+      const sC = connText(d.stm32_connected, fresh);
+      $('v-stm32-link').textContent = sC.text;
+      $('v-stm32-link').className = 'value ' + (
+        d.stm32_connected ? 'ok' : (fresh ? 'bad' : 'warn'));
+      $('v-stm32-ack').textContent =
+        d.stm32_ack_age_ms != null
+          ? `${Math.round(d.stm32_ack_age_ms)} ms` : '—';
+      $('v-stm32-fw').textContent = d.stm32_firmware_version || '—';
+      $('v-stm32-enc').textContent =
+        `${d.stm32_encoder_left ?? '—'} · ${d.stm32_encoder_right ?? '—'}`;
+
+      // Recent ticks table (last 10)
+      tickCount += 1;
+      recent.unshift({
+        n: tickCount,
+        direction: dir,
+        cmd: d.camera_command,
+        centroid: detected ? `(${cx}, ${cy})` : '—',
+        error: detected ? errPx : null,
+        final: d.final_command,
+        reason: d.decision_reason,
+      });
+      while (recent.length > 10) recent.pop();
+      const tbody = $('recent');
+      tbody.innerHTML = recent.map(r =>
+        `<tr>
+          <td>${r.n}</td>
+          <td>${r.direction}</td>
+          <td>${r.cmd}</td>
+          <td>${r.centroid}</td>
+          <td>${r.error == null ? '—'
+                : (r.error >= 0 ? '+' + r.error : r.error)}</td>
+          <td>${r.final}</td>
+          <td>${(r.reason || '').replace(/[<>]/g, '')}</td>
+         </tr>`).join('');
+    }
+
+    // ── transport ──
+    // We don't speak websockets from this page; just poll /status at 2 Hz
+    // and re-cache-bust the <img>.
+    async function tick() {
+      try {
+        const resp = await fetch('/status', { cache: 'no-store' });
+        const data = await resp.json();
+        render(data);
+        const img = $('cam');
+        img.src = '/frame.jpg?t=' + Date.now();
+      } catch (err) {
+        pill('conn-pill', 'OFFLINE', 'bad');
+        $('live-dot').className = 'dot offline';
+      }
+    }
+    tick();
+    setInterval(tick, 500);
+  </script>
+</body>
+</html>

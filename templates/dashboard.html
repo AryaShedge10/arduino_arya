@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>AGV Dashboard</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.5 system-ui, sans-serif; background: #10151d; color: #e8edf4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem clamp(1rem, 4vw, 3rem); border-bottom: 1px solid #293342; }
+    h1 { margin: 0; font-size: 1.25rem; letter-spacing: .04em; }
+    main { max-width: 1440px; margin: auto; padding: 1.25rem clamp(1rem, 4vw, 3rem); }
+    .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1rem; }
+    .card { background: #19212c; border: 1px solid #293342; border-radius: 12px; overflow: hidden; }
+    .card h2 { margin: 0; padding: .9rem 1rem; font-size: .95rem; color: #aebbd0; border-bottom: 1px solid #293342; }
+    .video { display: block; width: 100%; min-height: 220px; max-height: 72vh; object-fit: contain; background: #080b10; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: 1rem; }
+    .hint { margin: 0 1rem 1rem; color: #93a2b8; font-size: .78rem; }
+    .stat { padding: .75rem; background: #111821; border-radius: 8px; }
+    .label { display: block; color: #93a2b8; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+    .value { display: block; margin-top: .3rem; font-size: 1.15rem; font-weight: 650; overflow-wrap: anywhere; }
+    .device.connected { color: #4ade80; }
+    .device.disconnected { color: #f87171; }
+    .device.stale { color: #fbbf24; }
+    .device.unknown { color: #aebbd0; }
+    .log-card { grid-column: 1 / -1; }
+    .log-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding: 0 1rem 1rem; }
+    .log-panel { background: #111821; border: 1px solid #293342; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .log-panel header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .5rem .75rem; border: 0; }
+    .log-panel header h3 { margin: 0; font-size: .8rem; color: #aebbd0; text-transform: uppercase; letter-spacing: .08em; }
+    .log-panel header .badge { padding: .1rem .55rem; border-radius: 999px; font: .7rem/1.4 ui-monospace, monospace; background: #344054; color: #e8edf4; }
+    .log-panel.system header { background: #1f2937; }
+    .log-panel.camera header { background: #1e3a8a; }
+    .log-panel.lidar  header { background: #14532d; }
+    .log-panel.stm32  header { background: #854d0e; }
+    .log-list { list-style: none; margin: 0; padding: .5rem .75rem; height: 28vh; min-height: 180px; overflow: auto; font: .78rem/1.45 ui-monospace, monospace; }
+    .log-list li { padding: .25rem 0; border-bottom: 1px solid #293342; color: #e8edf4; }
+    .log-list li .ts { color: #6b7a90; margin-right: .5rem; }
+    .log-empty { color: #6b7a90; padding: .5rem .75rem; font: .8rem/1.4 ui-monospace, monospace; }
+    .pill { padding: .25rem .65rem; border-radius: 999px; background: #344054; font-size: .8rem; }
+    .pill.ok { background: #14532d; } .pill.warn { background: #854d0e; } .pill.bad { background: #7f1d1d; }
+    .backend { font: .7rem/1 ui-monospace, monospace; color: #6b7a90; margin-left: .5rem; }
+    .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-left: .5rem; vertical-align: middle; background: #6b7a90; }
+    .dot.running { background: #4ade80; box-shadow: 0 0 8px #4ade8088; }
+    .dot.stopped { background: #f87171; }
+    .sub-error { font: .72rem/1.35 ui-monospace, monospace; color: #fca5a5; margin-top: .35rem; word-break: break-word; }
+
+    /* ── Big readable guidance chip ────────────────────────────────
+       Class swap (center/left/right/caution/lost) drives the colour
+       and animation; the icon + text are written from JS. */
+    .guidance {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 1rem 1rem 0; padding: 1rem 1.25rem;
+      border: 2px solid #293342; border-radius: 10px;
+      font-weight: 800; letter-spacing: .03em;
+      transition: background-color .25s ease, border-color .25s ease;
+    }
+    .guidance-icon { font-size: 2.4rem; line-height: 1; }
+    .guidance-text { font-size: 1.8rem; }
+    .guidance.center  { background: rgba(74, 222, 128, .12); border-color: #4ade80; color: #4ade80; }
+    .guidance.left    { background: rgba(251, 191, 36, .12); border-color: #fbbf24; color: #fbbf24; }
+    .guidance.right   { background: rgba(251, 191, 36, .12); border-color: #fbbf24; color: #fbbf24; }
+    .guidance.caution { background: rgba(251, 191, 36, .12); border-color: #fbbf24; color: #fbbf24; }
+    .guidance.lost,
+    .guidance.unavail {
+      background: rgba(248, 113, 113, .15); border-color: #f87171; color: #f87171;
+      animation: pulse-lost 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse-lost {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, .45); }
+      50%      { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+    }
+    .power { display: flex; align-items: center; gap: .75rem; }
+    .power button { min-width: 8.5rem; padding: .6rem 1.2rem; border: 0; border-radius: 999px; font: 800 1rem/1 system-ui, sans-serif; letter-spacing: .06em; color: #fff; cursor: pointer; transition: background-color .2s, transform .05s; }
+    .power button:active { transform: scale(.97); }
+    .power button:disabled { opacity: .55; cursor: wait; }
+    .power button.off { background: #166534; }
+    .power button.on  { background: #b91c1c; }
+    .power .state { font: 700 .8rem/1 ui-monospace, monospace; color: #93a2b8; }
+    .power .state.on { color: #4ade80; }
+    .power .state.off { color: #f87171; }
+    .speed { padding: 1rem; display: grid; gap: .6rem; }
+    .speed-row { display: flex; align-items: center; gap: 1rem; }
+    .speed input[type=range] { flex: 1; accent-color: #4ade80; height: 1.6rem; }
+    .speed .big { font: 800 1.8rem/1 ui-monospace, monospace; min-width: 5.2rem; text-align: right; }
+    .speed .note { color: #93a2b8; font-size: .78rem; margin: 0; }
+    .speed .applied { font: .8rem/1 ui-monospace, monospace; color: #93a2b8; }
+    .manual { padding: 1rem; display: grid; gap: .8rem; }
+    .seg { display: inline-flex; border: 1px solid #344054; border-radius: 999px; overflow: hidden; align-self: start; width: max-content; }
+    .seg button { padding: .5rem 1.2rem; background: #111821; color: #aebbd0; border: 0; font: 700 .85rem/1 system-ui, sans-serif; letter-spacing: .05em; cursor: pointer; }
+    .seg button.active { background: #1e3a8a; color: #fff; }
+    .dpad { display: grid; grid-template-columns: repeat(3, 5.2rem); grid-template-rows: repeat(3, 5.2rem); gap: .5rem; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .dpad button { border: 2px solid #344054; border-radius: 14px; background: #111821; color: #e8edf4; font-size: 1.8rem; cursor: pointer; touch-action: none; }
+    .dpad button.held { background: #166534; border-color: #4ade80; }
+    .dpad button.stop { background: #7f1d1d; border-color: #f87171; font-size: 1rem; font-weight: 800; }
+    .dpad button:disabled { opacity: .35; cursor: not-allowed; }
+    .manual .note { color: #93a2b8; font-size: .78rem; margin: 0; }
+    .manual .live { font: .85rem/1 ui-monospace, monospace; color: #93a2b8; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .video { min-height: 180px; } .log-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AGV MONITOR <span id="running-dot" class="dot" title="AGV control loop"></span></h1>
+    <div class="power">
+      <span id="power-state" class="state off">MOTORS OFF</span>
+      <button id="power-btn" class="off" type="button" disabled>START</button>
+      <span id="connection" class="pill">Connecting…</span>
+    </div>
+  </header>
+  <main>
+    <div class="grid">
+      <section class="card">
+        <h2>Annotated camera <span id="backend-label" class="backend"></span></h2>
+        <img class="video" src="{{ url_for('video_feed') }}" alt="Live annotated camera stream">
+      </section>
+      <section class="card">
+        <h2>Vehicle state</h2>
+        <!-- Big human-readable guidance chip. Updates from the same
+             /status JSON as the rest of the page; class swap drives
+             the colour and animation. -->
+        <div id="guidance" class="guidance center" style="margin-bottom: 1rem;">
+          <span class="guidance-icon" id="g-icon">↑</span>
+          <span class="guidance-text" id="g-text">GO FORWARD</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="label">Camera direction</span><span id="direction" class="value">—</span></div>
+          <div class="stat"><span class="label">Camera command (compact)</span><span id="camera-command" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Camera connection</span><span id="camera-link" class="value device">—</span></div>
+          <div class="stat"><span class="label">Obstacle (camera)</span><span id="lidar" class="value">—</span><div id="lidar-error" class="sub-error"></div></div>
+          <div class="stat"><span class="label">Obstacle detector</span><span id="lidar-link" class="value device">—</span></div>
+          <div class="stat"><span class="label">Obstacle nearest edge</span><span id="distance" class="value">—</span></div>
+          <div class="stat"><span class="label">Arduino link (ACK)</span><span id="stm32-link" class="value device">—</span></div>
+
+          <div class="stat"><span class="label">Line tracking (is it getting on the line?)</span><span id="track" class="value">—</span></div>
+          <div class="stat"><span class="label">Line offset</span><span id="line-offset" class="value">—</span></div>
+          <div class="stat"><span class="label">Line angle</span><span id="line-angle" class="value">—</span></div>
+          <div class="stat"><span class="label">Lookahead error</span><span id="line-look" class="value">—</span></div>
+          <div class="stat"><span class="label">Curvature</span><span id="line-curv" class="value">—</span></div>
+          <div class="stat"><span class="label">Target speed / turn</span><span id="targets" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Wheel PWM  L · R</span><span id="wheels" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat" style="background: #1e3a8a;"><span class="label" style="color: #bfdbfe;">Final Motor Command</span><span id="command" class="value" style="color: white; font-weight: bold;">—</span></div>
+          <div class="stat" style="background: #1e3a8a;"><span class="label" style="color: #bfdbfe;">Active Decision (Why it's moving)</span><span id="decision-reason" class="value" style="color: white; font-size: 0.95rem;">—</span></div>
+        </div>
+        <p class="hint">The motors only run while the switch above is ON. The Arduino link is alive only while its <code>ACK2</code> replies keep arriving (dead after <code>{{ project_config.ARDUINO_ACK_TIMEOUT_MS }}</code> ms).</p>
+      </section>
+      <section class="card">
+        <h2>Max speed · master limit</h2>
+        <div class="speed">
+          <div class="speed-row">
+            <input id="speed-range" type="range" min="{{ project_config.SPEED_MIN_PCT }}" max="{{ project_config.SPEED_MAX_PCT }}" step="5" value="{{ project_config.DEFAULT_SPEED_PCT }}" aria-label="Max speed percent">
+            <span id="speed-val" class="big">—</span>
+          </div>
+          <span class="applied" id="speed-applied">applied: —</span>
+          <label class="applied" style="display:flex;gap:.6rem;align-items:center;cursor:pointer"><input type="checkbox" id="obst-toggle" checked> <span id="obst-label">Obstacle stop enforced (camera)</span></label>
+          <p class="note">Every other speed (line following, curves, caution, obstacle slow-down, turning, search) is scaled by this value. Changes ramp in smoothly and take effect immediately, also while driving.</p>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Manual control · test by hand</h2>
+        <div class="manual">
+          <div class="seg" role="group" aria-label="Drive mode">
+            <button id="mode-auto" type="button" class="active">AUTO</button>
+            <button id="mode-manual" type="button">MANUAL</button>
+          </div>
+          <div class="dpad" id="dpad" aria-label="Manual drive pad">
+            <span></span><button type="button" data-dir="up" aria-label="Forward">▲</button><span></span>
+            <button type="button" data-dir="left" aria-label="Turn left">◄</button>
+            <button type="button" class="stop" id="manual-stop" aria-label="Stop">STOP</button>
+            <button type="button" data-dir="right" aria-label="Turn right">►</button>
+            <span></span><button type="button" data-dir="down" aria-label="Reverse">▼</button><span></span>
+          </div>
+          <span class="live" id="manual-live">manual: off</span>
+          <p class="note">1) choose MANUAL (password), 2) press START, 3) hold a button or W A S D / arrow keys to drive. Release and it stops within half a second. Speed follows the Max speed slider and ramps smoothly. Camera obstacle detection is <b>not</b> enforced in manual mode: you are the safety.</p>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Arduino · motor link</h2>
+        <div class="stats">
+          <div class="stat"><span class="label">Firmware protocol</span><span id="fw-version" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">ACK age</span><span id="ack-age" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder L (raw)</span><span id="enc-left" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder R (raw)</span><span id="enc-right" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder Δ L (since boot)</span><span id="enc-delta-left" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder Δ R (since boot)</span><span id="enc-delta-right" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+        </div>
+        <p class="hint">Deltas reset to 0 on the V&lt;n&gt; boot line. Raw encoders are 16-bit and wrap every 65 536 ticks; deltas are wrap-safe signed int16.</p>
+      </section>
+      <section class="card">
+        <h2>Sensor probes · startup wiring check</h2>
+        <table id="probes" style="width:100%; border-collapse: collapse; padding: .75rem 1rem; font-size: .85rem;">
+          <thead>
+            <tr style="text-align:left; color:#93a2b8;">
+              <th style="padding: .35rem .5rem;">Device</th>
+              <th style="padding: .35rem .5rem;">Port</th>
+              <th style="padding: .35rem .5rem;">Status</th>
+              <th style="padding: .35rem .5rem;">Latency</th>
+              <th style="padding: .35rem .5rem;">Detail</th>
+            </tr>
+          </thead>
+          <tbody id="probe-rows">
+            <tr><td colspan="5" style="padding:.6rem; color:#93a2b8;">Waiting for first probe…</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="card">
+        <h2>Last error · runtime exceptions</h2>
+        <pre id="last-error" style="margin:0; padding:.9rem 1rem; font:.8rem/1.45 ui-monospace,monospace; white-space:pre-wrap; overflow:auto; max-height:260px; color:#fca5a5;">— none —</pre>
+      </section>
+      <section class="card log-card">
+        <h2>Logs by source · newest first</h2>
+        <div class="log-grid">
+          <article class="log-panel system">
+            <header><h3>System</h3><span class="badge" id="count-system">0</span></header>
+            <ul class="log-list" id="log-system" aria-live="polite"></ul>
+          </article>
+          <article class="log-panel camera">
+            <header><h3>Camera · vision</h3><span class="badge" id="count-camera">0</span></header>
+            <ul class="log-list" id="log-camera" aria-live="polite"></ul>
+          </article>
+          <article class="log-panel lidar">
+            <header><h3>Obstacle · camera</h3><span class="badge" id="count-lidar">0</span></header>
+            <ul class="log-list" id="log-lidar" aria-live="polite"></ul>
+          </article>
+          <article class="log-panel stm32">
+            <header><h3>Arduino · motor link</h3><span class="badge" id="count-stm32">0</span></header>
+            <ul class="log-list" id="log-stm32" aria-live="polite"></ul>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+    let lastLogId = 0;
+    const $ = (id) => document.getElementById(id);
+    const LOG_PANELS = {
+      SYSTEM: { list: 'log-system', count: 'count-system' },
+      CAMERA: { list: 'log-camera', count: 'count-camera' },
+      LIDAR:  { list: 'log-lidar',  count: 'count-lidar'  },
+      STM32:  { list: 'log-stm32',  count: 'count-stm32'  },
+    };
+    const panelCounts = { SYSTEM: 0, CAMERA: 0, LIDAR: 0, STM32: 0 };
+    const PANEL_MAX = 200;
+    const EMPTY = '<li class="log-empty">No entries yet.</li>';
+    function setText(id, value) { $(id).textContent = value ?? '—'; }
+    function setConnection(id, connected, fresh, available) {
+      const element = $(id);
+      if (!available) {
+        element.textContent = 'UNKNOWN';
+        element.className = 'value device unknown';
+      } else if (!fresh) {
+        element.textContent = connected ? 'STALE · LAST CONNECTED' : 'STALE · LAST DISCONNECTED';
+        element.className = 'value device stale';
+      } else {
+        element.textContent = connected ? 'CONNECTED' : 'DISCONNECTED';
+        element.className = `value device ${connected ? 'connected' : 'disconnected'}`;
+      }
+    }
+    function renderProbes(probes) {
+      const tbody = $('probe-rows');
+      if (!probes || !probes.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:.6rem; color:#93a2b8;">No probes yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      for (const p of probes) {
+        const statusColor = p.status === 'OK' ? '#4ade80'
+                          : (p.status === 'FAILED' || p.status === 'ERROR') ? '#f87171'
+                          : '#fbbf24';
+        const detail = p.error || (p.serial ? `S/N ${p.serial}` : '—');
+        const row = document.createElement('tr');
+        row.style.borderTop = '1px solid #293342';
+        row.innerHTML = `
+          <td style="padding:.35rem .5rem; font-weight:600;">${p.device}</td>
+          <td style="padding:.35rem .5rem; font-family:ui-monospace,monospace; color:#93a2b8;">${p.port || '—'}</td>
+          <td style="padding:.35rem .5rem; color:${statusColor}; font-weight:600;">${p.status}</td>
+          <td style="padding:.35rem .5rem; color:#aebbd0;">${p.latency_ms != null ? p.latency_ms + ' ms' : '—'}</td>
+          <td style="padding:.35rem .5rem; color:#aebbd0;">${detail}</td>`;
+        tbody.appendChild(row);
+      }
+    }
+    function ensureEmptyState(listId) {
+      const list = $(listId);
+      if (!list.children.length) {
+        list.innerHTML = EMPTY;
+      } else {
+        const placeholder = list.querySelector('.log-empty');
+        if (placeholder) placeholder.remove();
+      }
+    }
+    function appendLogEntry(entry) {
+      const cat = entry.category || 'SYSTEM';
+      const panel = LOG_PANELS[cat] || LOG_PANELS.SYSTEM;
+      const list = $(panel.list);
+      if (list.children.length === 1 && list.firstElementChild.classList.contains('log-empty')) {
+        list.innerHTML = '';
+      }
+      const li = document.createElement('li');
+      const stamp = new Date((entry.timestamp || 0) * 1000).toLocaleTimeString();
+      const ts = document.createElement('span');
+      ts.className = 'ts';
+      ts.textContent = stamp;
+      li.appendChild(ts);
+      li.appendChild(document.createTextNode(entry.message || ''));
+      list.prepend(li);
+      while (list.children.length > PANEL_MAX) list.lastElementChild.remove();
+      panelCounts[cat] = (panelCounts[cat] || 0) + 1;
+      $(panel.count).textContent = panelCounts[cat];
+    }
+    function apply(data) {
+      const age = data.updated_at ? (Date.now() / 1000 - data.updated_at) : Infinity;
+      const fresh = age < 3;
+      const badge = $('connection');
+      badge.textContent = fresh ? 'LIVE' : 'STALE / WAITING';
+      badge.className = `pill ${fresh ? 'ok' : 'warn'}`;
+      const dot = $('running-dot');
+      dot.className = `dot ${data.running ? 'running' : 'stopped'}`;
+      dot.title = data.running ? 'AGV control loop running' : 'AGV control loop stopped';
+      updatePower(data.enabled, fresh);
+      updateSpeed(data.max_speed_pct);
+      updateTrack(data.track_state, data.steer_boost || 1);
+      updateObstacleSwitch(data.obstacle_enforced);
+      driveMode = data.mode === 'manual' ? 'manual' : 'auto';
+      updateManualUi();
+      setText('direction', data.camera_direction);
+      const f2 = (v, u, d=2) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(d)}${u}`);
+      setText('line-offset', f2(data.line_offset_m, ' m'));
+      setText('line-angle', f2(data.line_angle_deg, '°', 1));
+      setText('line-look', f2(data.line_lookahead_m, ' m'));
+      setText('line-curv', f2(data.line_curvature, ' /m'));
+      setText('targets', `${Math.round(data.speed_target || 0)} / ${Math.round(data.omega_target || 0)}`);
+      setText('wheels', `${data.left_pwm ?? 0} · ${data.right_pwm ?? 0}`);
+      setText('camera-command', data.camera_command);
+      // Big readable guidance chip — drives what the operator should
+      // expect the rover to do. Class swap changes colour/animation.
+      const DIR_GUIDE = {
+        CENTER:      { icon: '↑', text: 'GO FORWARD',  cls: 'center'  },
+        LEFT:        { icon: '↰', text: 'TURN LEFT',   cls: 'left'    },
+        RIGHT:       { icon: '↱', text: 'TURN RIGHT',  cls: 'right'   },
+        CAUTION:     { icon: '⚠', text: 'CAUTION',     cls: 'caution' },
+        LOST:        { icon: '✖', text: 'LINE LOST',   cls: 'lost'    },
+        UNAVAILABLE: { icon: '?', text: 'NO CAMERA',   cls: 'unavail' },
+      };
+      const g = DIR_GUIDE[data.camera_direction]
+                || { icon: '·', text: '—', cls: '' };
+      $('guidance').className = 'guidance ' + g.cls;
+      $('g-icon').textContent = g.icon;
+      $('g-text').textContent = g.text;
+      setConnection('camera-link', data.camera_connected, fresh, typeof data.camera_connected === 'boolean');
+      setText('lidar', data.lidar_status);
+      const lidarErr = $('lidar-error');
+      lidarErr.textContent = data.lidar_error || '';
+      lidarErr.style.display = data.lidar_error ? 'block' : 'none';
+      setConnection('lidar-link', data.lidar_connected, fresh, typeof data.lidar_connected === 'boolean');
+      setConnection('stm32-link', data.stm32_connected, fresh, typeof data.stm32_connected === 'boolean');
+      setText('distance', data.lidar_distance_mm > 0 ? `${Math.round(data.lidar_distance_mm)} mm` : '—');
+      setText('command', data.final_command);
+      setText('decision-reason', data.decision_reason || '—');
+      setText('backend-label', data.camera_backend ? `[${data.camera_backend}]` : '');
+      setText('fw-version', data.stm32_firmware_version || '—');
+      setText('ack-age', data.stm32_ack_age_ms != null ? `${Math.round(data.stm32_ack_age_ms)} ms` : '—');
+      setText('enc-left', data.stm32_encoder_left ?? '—');
+      setText('enc-right', data.stm32_encoder_right ?? '—');
+      const fmtDelta = (v) => v == null ? '—' : (v >= 0 ? `+${v}` : `${v}`);
+      setText('enc-delta-left', fmtDelta(data.stm32_encoder_delta_left));
+      setText('enc-delta-right', fmtDelta(data.stm32_encoder_delta_right));
+      renderProbes(data.sensor_probes);
+      setText('last-error', data.last_error || '— none —');
+      for (const entry of data.logs || []) {
+        appendLogEntry(entry);
+        lastLogId = Math.max(lastLogId, entry.id || 0);
+      }
+    }
+    // ── Motor ON/OFF switch ──────────────────────────────────────────
+    // The server (control.json) is the source of truth; the button shows
+    // what the AGV reports back in status.json, never an optimistic guess.
+    // START asks for the dashboard password; STOP never does.
+    let motorsOn = false, pending = false, pendingTarget = false;
+    const btn = $('power-btn');
+    function updatePower(enabled, fresh) {
+      motorsOn = !!enabled;
+      if (pending && motorsOn === pendingTarget) pending = false;
+      if (!pending) {
+        btn.disabled = !fresh;
+        btn.textContent = motorsOn ? 'STOP' : 'START';
+        btn.className = motorsOn ? 'on' : 'off';
+      }
+      const st = $('power-state');
+      st.textContent = fresh ? (motorsOn ? 'MOTORS ON' : 'MOTORS OFF') : 'NO AGV';
+      st.className = 'state ' + (fresh && motorsOn ? 'on' : 'off');
+    }
+    async function postEnable(want, password) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (password) headers['X-AGV-Password'] = password;
+      return fetch('/api/enable', { method: 'POST', headers, body: JSON.stringify({ enabled: want }) });
+    }
+    async function setMotors(want) {
+      pending = true; pendingTarget = want; btn.disabled = true;
+      try {
+        let r;
+        if (!want) {
+          r = await postEnable(false);                       // STOP: no password
+        } else {
+          let pw = sessionStorage.getItem('agv-password') || prompt('Password to start the motors:');
+          if (!pw) throw new Error('cancelled');
+          r = await postEnable(true, pw);
+          if (r.status === 403) {                            // wrong / stale password: ask once more
+            sessionStorage.removeItem('agv-password');
+            pw = prompt('Wrong password. Try again:');
+            if (!pw) throw new Error('cancelled');
+            r = await postEnable(true, pw);
+          }
+          if (r.ok) sessionStorage.setItem('agv-password', pw);
+          else sessionStorage.removeItem('agv-password');
+          if (r.status === 403) alert('Wrong password.');
+          if (r.status === 429) alert('Too many wrong passwords. Wait 30 seconds.');
+        }
+        if (!r.ok) throw new Error(r.status);
+      } catch (err) {
+        console.warn('enable failed', err);
+        pending = false;
+        btn.disabled = false;
+      }
+      // Safety net: re-enable the button if the AGV never confirms.
+      setTimeout(() => { pending = false; btn.disabled = false; }, 3000);
+    }
+    btn.addEventListener('click', () => setMotors(!motorsOn));
+
+    // ── Max speed ────────────────────────────────────────────────────
+    const range = $('speed-range');
+    let dragging = false, speedTimer = null, speedSetAt = 0;
+    range.addEventListener('input', () => {
+      dragging = true;
+      $('speed-val').textContent = `${range.value}%`;
+    });
+    range.addEventListener('change', () => {          // on release / keyboard step
+      dragging = false;
+      speedSetAt = Date.now();           // ignore stale status until the AGV echoes
+      clearTimeout(speedTimer);
+      speedTimer = setTimeout(() => {
+        fetch('/api/speed', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ max_speed_pct: Number(range.value) }) })
+          .catch((e) => console.warn('speed failed', e));
+      }, 150);
+    });
+    function updateSpeed(pct) {
+      if (!pct) return;
+      $('speed-applied').textContent = `applied: ${pct}%`;
+      if (!dragging && document.activeElement !== range && Date.now() - speedSetAt > 2000) {
+        range.value = pct;
+        $('speed-val').textContent = `${pct}%`;
+      }
+    }
+
+    // ── Manual control ───────────────────────────────────────────────
+    // Hold-to-drive: while a button/key is held we POST {v, w} ~10x/s; the AGV
+    // treats a command older than ~0.4 s as released, so closing the tab,
+    // losing Wi-Fi or letting go all stop the rover.
+    let driveMode = 'auto';
+    const held = new Set();
+    let driveTimer = null, lastSent = '';
+    function askPassword(force) {
+      let pw = force ? null : sessionStorage.getItem('agv-password');
+      if (!pw) pw = prompt('Password:');
+      return pw;
+    }
+    function driveVector() {
+      const v = (held.has('up') ? 1 : 0) - (held.has('down') ? 1 : 0);
+      const w = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0);
+      return { v, w };
+    }
+    function manualActive() { return driveMode === 'manual' && motorsOn; }
+    function sendDrive(force) {
+      const { v, w } = manualActive() ? driveVector() : { v: 0, w: 0 };
+      const key = v + ',' + w;
+      $('manual-live').textContent = manualActive()
+        ? `manual: v=${v >= 0 ? '+' : ''}${v}  turn=${w >= 0 ? '+' : ''}${w}` : 'manual: off';
+      if (!force && key === '0,0' && lastSent === '0,0') return;
+      lastSent = key;
+      const pw = sessionStorage.getItem('agv-password') || '';
+      fetch('/api/manual', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-AGV-Password': pw },
+        body: JSON.stringify({ v, w }) }).catch(() => {});
+    }
+    function refreshDrive() {
+      document.querySelectorAll('#dpad button[data-dir]').forEach(b => {
+        b.classList.toggle('held', held.has(b.dataset.dir));
+      });
+      if (held.size && !driveTimer) driveTimer = setInterval(() => sendDrive(true), 100);
+      if (!held.size && driveTimer) { clearInterval(driveTimer); driveTimer = null; }
+      sendDrive(true);
+    }
+    function releaseAll() { held.clear(); refreshDrive(); }
+    function updateManualUi() {
+      $('mode-auto').classList.toggle('active', driveMode !== 'manual');
+      $('mode-manual').classList.toggle('active', driveMode === 'manual');
+      const can = manualActive();
+      document.querySelectorAll('#dpad button').forEach(b => { b.disabled = !can; });
+      if (!can && held.size) releaseAll();
+      $('manual-live').textContent = can ? $('manual-live').textContent : 'manual: off';
+    }
+    async function setMode(mode) {
+      const headers = { 'Content-Type': 'application/json' };
+      let pw = null;
+      if (mode === 'manual') {
+        pw = askPassword(false);
+        if (!pw) return;
+        headers['X-AGV-Password'] = pw;
+      }
+      let r = await fetch('/api/mode', { method: 'POST', headers, body: JSON.stringify({ mode }) });
+      if (r.status === 403 && mode === 'manual') {
+        pw = askPassword(true);
+        if (!pw) return;
+        headers['X-AGV-Password'] = pw;
+        r = await fetch('/api/mode', { method: 'POST', headers, body: JSON.stringify({ mode }) });
+      }
+      if (r.ok && pw) sessionStorage.setItem('agv-password', pw);
+      else if (r.status === 403) { sessionStorage.removeItem('agv-password'); alert('Wrong password.'); }
+      else if (r.status === 429) alert('Too many wrong passwords. Wait 30 seconds.');
+    }
+    $('mode-auto').addEventListener('click', () => { releaseAll(); setMode('auto'); });
+    $('mode-manual').addEventListener('click', () => setMode('manual'));
+    document.querySelectorAll('#dpad button[data-dir]').forEach(b => {
+      b.addEventListener('pointerdown', (e) => {
+        if (!manualActive()) return;
+        e.preventDefault(); b.setPointerCapture(e.pointerId);
+        held.add(b.dataset.dir); refreshDrive();
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'])
+        b.addEventListener(ev, () => { held.delete(b.dataset.dir); refreshDrive(); });
+    });
+    $('manual-stop').addEventListener('click', () => { releaseAll(); setMotors(false); });
+    const KEYS = { w: 'up', arrowup: 'up', s: 'down', arrowdown: 'down', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right' };
+    document.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) && document.activeElement.type !== 'range') return;
+      const k = e.key.toLowerCase();
+      if (k === ' ') { e.preventDefault(); releaseAll(); return; }
+      if (KEYS[k] && manualActive()) {
+        e.preventDefault();
+        if (!held.has(KEYS[k])) { held.add(KEYS[k]); refreshDrive(); }
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      const k = KEYS[e.key.toLowerCase()];
+      if (k && held.has(k)) { held.delete(k); refreshDrive(); }
+    });
+    window.addEventListener('blur', releaseAll);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+
+    // ── Line tracking status + obstacle-stop switch ──────────────────
+    const TRACK = {
+      ON_LINE:    ['ON THE LINE', '#4ade80'],
+      CORRECTING: ['CORRECTING', '#fbbf24'],
+      STUCK:      ['NOT TURNING - BOOSTING', '#f87171'],
+      DRIFTING:   ['DRIFTING OFF - BOOSTING', '#f87171'],
+      OFF_LINE:   ['OFF THE LINE', '#f87171'],
+      ALIGNING:   ['PIVOTING TO ALIGN', '#fbbf24'],
+      NO_LINE:    ['NO LINE', '#93a2b8'],
+    };
+    function updateTrack(state, boost) {
+      const t = TRACK[state] || TRACK.NO_LINE;
+      const el = $('track');
+      el.textContent = t[0] + (boost > 1.05 ? `  x${boost.toFixed(1)}` : '');
+      el.style.color = t[1];
+    }
+    const obstBox = $('obst-toggle');
+    let obstSetAt = 0;
+    obstBox.addEventListener('change', async () => {
+      const want = obstBox.checked;
+      obstSetAt = Date.now();
+      const headers = { 'Content-Type': 'application/json' };
+      if (!want) {                                   // removing a safety layer: password
+        let pw = sessionStorage.getItem('agv-password') || prompt('Password to turn the obstacle stop OFF:');
+        if (!pw) { obstBox.checked = true; return; }
+        headers['X-AGV-Password'] = pw;
+      }
+      const r = await fetch('/api/obstacle', { method: 'POST', headers, body: JSON.stringify({ enabled: want }) });
+      if (r.ok && headers['X-AGV-Password']) sessionStorage.setItem('agv-password', headers['X-AGV-Password']);
+      if (!r.ok) { obstBox.checked = true; sessionStorage.removeItem('agv-password'); alert(r.status === 403 ? 'Wrong password.' : 'Not changed.'); }
+    });
+    function updateObstacleSwitch(enforced) {
+      if (Date.now() - obstSetAt < 2000) return;
+      obstBox.checked = enforced !== false;
+      $('obst-label').textContent = enforced === false
+        ? 'Obstacle stop IGNORED (bench test only)' : 'Obstacle stop enforced (camera)';
+      $('obst-label').style.color = enforced === false ? '#f87171' : '';
+    }
+
+    function startWebSocket() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const url = `${proto}://${location.hostname}:{{ project_config.DASHBOARD_WS_PORT }}`;
+      let ws, retryDelay = 500;
+      function connect() {
+        ws = new WebSocket(url);
+        ws.onopen = () => { retryDelay = 500; };
+        ws.onmessage = (ev) => {
+          try { apply(JSON.parse(ev.data)); }
+          catch (err) { console.warn('ws parse', err); }
+        };
+        ws.onclose = () => {
+          $('connection').textContent = 'OFFLINE';
+          $('connection').className = 'pill bad';
+          setTimeout(connect, retryDelay);
+          retryDelay = Math.min(retryDelay * 2, 5000);
+        };
+        ws.onerror = () => ws.close();
+      }
+      connect();
+    }
+    for (const cat of Object.keys(LOG_PANELS)) {
+      ensureEmptyState(LOG_PANELS[cat].list);
+    }
+    // First paint from /status, then live updates via WebSocket.
+    fetch('/status', { cache: 'no-store' })
+      .then(r => r.json()).then(apply).catch(() => {});
+    startWebSocket();
+  </script>
+</body>
+</html>

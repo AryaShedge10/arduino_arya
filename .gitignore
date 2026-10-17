@@ -1,0 +1,13 @@
+# secrets
+.dashboard_password
+
+# runtime output (logs, pid files, camera snapshots with people in them)
+logs/
+*.lock
+
+# python
+__pycache__/
+*.pyc
+
+# arduino build output
+build/
