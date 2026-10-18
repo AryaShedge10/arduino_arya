@@ -18,16 +18,20 @@ is not involved.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hmac
 import json
 import logging
 import os
+import re
 import secrets
+import shutil
+import subprocess
 import threading
 import time
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, send_file
 
 from config import (
     DASHBOARD_HOST, DASHBOARD_HTTP_PORT, DASHBOARD_WS_PORT, TELEMETRY_DIR,
@@ -35,7 +39,8 @@ from config import (
 from control_state import (
     MANUAL_STALE_S, ControlReader, clamp_speed, read_state, write_state,
 )
-from config import SPEED_MAX_PCT, SPEED_MIN_PCT
+import recording_io
+from config import REC_DEFAULT_RATE_HZ, REC_DIR, SPEED_MAX_PCT, SPEED_MIN_PCT
 
 log = logging.getLogger('agv.web')
 
@@ -147,25 +152,231 @@ def _load_password() -> str:
 _PASSWORD = _load_password()
 _fail_times: list = []          # recent wrong-password timestamps
 
+# ── Sessions: short-lived access token + longer refresh token ───────
+# Both are HMAC-signed, self-contained tokens, so they survive page reloads
+# (the browser keeps them) and dashboard restarts. The signing key is derived
+# from a random secret AND the password: changing the password signs everybody
+# out. The refresh token has a fixed absolute lifetime (it is not extended by
+# using it), so a session can never outlive REFRESH_TTL_S.
+ACCESS_TTL_S = int(os.environ.get('AGV_ACCESS_TTL_S', '900'))        # 15 min
+REFRESH_TTL_S = int(os.environ.get('AGV_REFRESH_TTL_S', '28800'))    # 8 h
+SECRET_FILE = Path(__file__).resolve().parent / '.dashboard_secret'
+REVOKED_FILE = Path(TELEMETRY_DIR) / 'revoked_sessions.json'
 
-def _password_ok(req) -> tuple:
-    """(ok, http_status). Wrong guesses are throttled: 5 in 60 s -> 30 s lockout."""
+
+def _load_secret() -> bytes:
+    try:
+        text = SECRET_FILE.read_text(encoding='utf-8').strip()
+        if len(text) >= 32:
+            return text.encode()
+    except OSError:
+        pass
+    value = secrets.token_hex(32)
+    fd = os.open(SECRET_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as fh:
+        fh.write(value + '\n')
+    return value.encode()
+
+
+_KEY = hmac.new(_load_secret(), _PASSWORD.encode(), 'sha256').digest()
+_revoked: dict = {}             # sid -> expiry (epoch); pruned when expired
+_revoked_lock = threading.Lock()
+
+
+def _b64(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
+
+
+def _unb64(text: str) -> bytes:
+    return base64.urlsafe_b64decode(text + '=' * (-len(text) % 4))
+
+
+def _make_token(kind: str, sid: str, iat: float, exp: float, extra: dict = None) -> str:
+    payload = {'t': kind, 'sid': sid, 'iat': int(iat), 'exp': int(exp)}
+    if extra:
+        payload.update({k: v for k, v in extra.items() if k not in payload})
+    body = _b64(json.dumps(payload, separators=(',', ':')).encode())
+    sig = _b64(hmac.new(_KEY, body.encode(), 'sha256').digest())
+    return f'{body}.{sig}'
+
+
+def _check_token(token: str, kind: str):
+    """(payload, reason): reason is '' when valid, else 'expired'|'revoked'|'invalid'."""
+    try:
+        body, sig = token.split('.', 1)
+        good = _b64(hmac.new(_KEY, body.encode(), 'sha256').digest())
+        if not hmac.compare_digest(sig.encode(), good.encode()):
+            return None, 'invalid'
+        payload = json.loads(_unb64(body))
+        if payload.get('t') != kind:
+            return None, 'invalid'
+    except (ValueError, TypeError, KeyError, UnicodeError):
+        return None, 'invalid'
+    if payload['exp'] <= time.time():
+        return payload, 'expired'
+    with _revoked_lock:
+        if payload['sid'] in _revoked:
+            return payload, 'revoked'
+    return payload, ''
+
+
+def _load_revoked() -> None:
+    try:
+        data = json.loads(REVOKED_FILE.read_text(encoding='utf-8'))
+        now = time.time()
+        with _revoked_lock:
+            _revoked.update({k: v for k, v in data.items() if v > now})
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
+def _save_revoked() -> None:
+    try:
+        now = time.time()
+        with _revoked_lock:
+            for k in [k for k, v in _revoked.items() if v <= now]:
+                del _revoked[k]
+            data = dict(_revoked)
+        REVOKED_FILE.parent.mkdir(parents=True, exist_ok=True)
+        REVOKED_FILE.write_text(json.dumps(data), encoding='utf-8')
+    except OSError:
+        pass
+
+
+_load_revoked()
+
+
+def _throttled() -> bool:
     now = time.monotonic()
     recent = [t for t in _fail_times if now - t < 60.0]
     _fail_times[:] = recent
-    if len(recent) >= 5 and now - recent[-1] < 30.0:
+    return len(recent) >= 5 and now - recent[-1] < 30.0
+
+
+def _password_ok(req) -> tuple:
+    """(ok, http_status).
+
+    Accepts ``Authorization: Bearer <access token>`` (401 when it is expired /
+    invalid, so the page knows to refresh it) or, for scripts, the legacy
+    ``X-AGV-Password`` header. Wrong passwords are throttled: 5 in 60 s ->
+    30 s lockout.
+    """
+    auth = req.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        _payload, reason = _check_token(auth[7:].strip(), 'a')
+        return (True, 200) if not reason else (False, 401)
+    if _throttled():
         return False, 429
     given = req.headers.get('X-AGV-Password', '')
     if hmac.compare_digest(given.encode(), _PASSWORD.encode()):
         return True, 200
-    _fail_times.append(now)
+    _fail_times.append(time.monotonic())
     return False, 403
+
+
+def _auth_fail(status: int):
+    msg = {401: 'session expired - sign in again', 429: 'too many wrong passwords - wait 30 s'}
+    return jsonify({'error': msg.get(status, 'wrong password')}), status
+
+
+def _rec_auth_fail():
+    return jsonify({'error': 'sign in required'}), 401
+
+
+def _rec_read_ok(req, name: str = None, force: bool = False) -> tuple:
+    """(ok, status) for READING recordings. Side-effect free: never touches
+    _fail_times and never returns 429, so unauthenticated image loads cannot
+    lock out the START button. Not enforced unless config.REC_REQUIRE_AUTH."""
+    import config as _cfg
+    if not (_cfg.REC_REQUIRE_AUTH or force):
+        return True, 200
+    ft = req.args.get('ft', '')
+    if ft:
+        payload, reason = _check_token(ft, 'f')
+        if not reason and (name is None or payload.get('n') == name):
+            return True, 200
+    auth = req.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        _payload, reason = _check_token(auth[7:].strip(), 'a')
+        if not reason:
+            return True, 200
+    given = req.headers.get('X-AGV-Password', '')
+    if given and hmac.compare_digest(given.encode(), _PASSWORD.encode()):
+        return True, 200
+    return False, 401
+
+
+def _session_json(sid: str, iat: float, exp: float, refresh: bool = True) -> dict:
+    now = time.time()
+    out = {'access_token': _make_token('a', sid, now, min(now + ACCESS_TTL_S, exp)),
+           'access_expires_in': int(min(ACCESS_TTL_S, exp - now)),
+           'refresh_expires_in': int(exp - now), 'server_time': now}
+    if refresh:
+        out['refresh_token'] = _make_token('r', sid, iat, exp)
+    return out
+
+
+@flask_app.route('/api/login', methods=['POST'])
+def api_login():
+    """{"password": ...} -> access + refresh tokens (also stored by the page)."""
+    if _throttled():
+        return _auth_fail(429)
+    given = str((request.get_json(silent=True) or {}).get('password', ''))
+    if not hmac.compare_digest(given.encode(), _PASSWORD.encode()):
+        _fail_times.append(time.monotonic())
+        return _auth_fail(403)
+    now = time.time()
+    log.info('[API] sign-in from %s', request.remote_addr)
+    return jsonify(_session_json(secrets.token_hex(8), now, now + REFRESH_TTL_S))
+
+
+@flask_app.route('/api/refresh', methods=['POST'])
+def api_refresh():
+    """{"refresh_token": ...} -> a fresh access token. The refresh token keeps
+    its original expiry: it is not extended by use."""
+    token = str((request.get_json(silent=True) or {}).get('refresh_token', ''))
+    payload, reason = _check_token(token, 'r')
+    if reason:
+        return jsonify({'error': f'refresh token {reason} - sign in again',
+                        'reason': reason}), 401
+    return jsonify(_session_json(payload['sid'], payload['iat'], payload['exp'],
+                                 refresh=False))
+
+
+@flask_app.route('/api/auth', methods=['GET'])
+def api_auth():
+    """Is this access token still good, and for how long?"""
+    auth = request.headers.get('Authorization', '')
+    payload, reason = _check_token(auth[7:].strip(), 'a') if auth.startswith('Bearer ') else (None, 'invalid')
+    if reason:
+        return jsonify({'authenticated': False, 'reason': reason}), 401
+    return jsonify({'authenticated': True, 'access_expires_in': int(payload['exp'] - time.time()),
+                    'server_time': time.time()})
+
+
+@flask_app.route('/api/logout', methods=['POST'])
+def api_logout():
+    """Revoke the session of the given refresh token (or of the bearer token)."""
+    body = request.get_json(silent=True) or {}
+    payload, _ = _check_token(str(body.get('refresh_token', '')), 'r')
+    if payload is None:
+        auth = request.headers.get('Authorization', '')
+        if auth.startswith('Bearer '):
+            payload, _ = _check_token(auth[7:].strip(), 'a')
+    if payload is not None:
+        with _revoked_lock:
+            _revoked[payload['sid']] = payload['exp']
+        _save_revoked()
+    return jsonify({'ok': True})
 
 
 def _control_json():
     state = read_state()
     state.pop('ts', None)
     state.pop('manual_ts', None)
+    state.pop('manual_l', None)
+    state.pop('manual_r', None)
+    state.pop('manual_raw', None)
     state.update(speed_min_pct=SPEED_MIN_PCT, speed_max_pct=SPEED_MAX_PCT,
                  password_required_to_start=True,
                  manual_stale_s=MANUAL_STALE_S)
@@ -185,8 +396,7 @@ def api_enable():
         if want:
             ok, status = _password_ok(request)
             if not ok:
-                msg = 'too many wrong passwords, wait' if status == 429 else 'wrong password'
-                return jsonify({'error': msg}), status
+                return _auth_fail(status)
         write_state(enabled=want)          # STOP also zeroes any manual command
         log.info('[API] motors %s from %s', 'ENABLED' if want else 'DISABLED',
                  request.remote_addr)
@@ -206,8 +416,7 @@ def api_mode():
         if want == 'manual':
             ok, status = _password_ok(request)
             if not ok:
-                msg = 'too many wrong passwords, wait' if status == 429 else 'wrong password'
-                return jsonify({'error': msg}), status
+                return _auth_fail(status)
         # Leaving manual also stops the motors: otherwise the rover would start
         # line-following the instant AUTO is chosen. START (password) runs auto.
         if want == 'auto':
@@ -228,7 +437,7 @@ def api_manual():
     """
     ok, status = _password_ok(request)
     if not ok:
-        return jsonify({'error': 'wrong password'}), status
+        return _auth_fail(status)
     body = request.get_json(silent=True) or {}
     try:
         v, w = float(body.get('v', 0.0)), float(body.get('w', 0.0))
@@ -237,8 +446,409 @@ def api_manual():
     state = read_state()
     if state['mode'] != 'manual' or not state['enabled']:
         return jsonify({'error': 'switch to MANUAL mode and press START first'}), 409
-    write_state(manual=(v, w))
+    if body.get('left') is not None or body.get('right') is not None:
+        # Per-wheel test (chassis diagram): left / right as -1..1 of the cap.
+        try:
+            lft, rgt = float(body.get('left', 0.0)), float(body.get('right', 0.0))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'left and right must be numbers'}), 400
+        write_state(manual_lr=(lft, rgt), raw=bool(body.get('raw', False)))
+    else:
+        write_state(manual=(v, w))
     return jsonify({'ok': True})
+
+
+@flask_app.route('/api/encoders/zero', methods=['POST'])
+def api_encoders_zero():
+    """Zero the dashboard's "ticks since zero" counters (needs sign-in)."""
+    ok, status = _password_ok(request)
+    if not ok:
+        return _auth_fail(status)
+    write_state(enc_zero=True)
+    return jsonify({'ok': True})
+
+
+# ── Test recordings (see recorder.py) ───────────────────────────────
+_SESSION_RE = re.compile(r'^\d{8}_\d{6}$')
+_REC_FILES = re.compile(r'^(frames/\d{6}\.jpg|views/\d{6}\.jpg|log\.jsonl|events\.jsonl|meta\.json|summary\.json'
+                        r'|manifest\.json|shards/s\d{4}/(frames/\d{6}\.jpg|log\.jsonl|events\.jsonl|telemetry\.jsonl|manifest\.json))$')
+
+
+def _session_path(name: str):
+    if not _SESSION_RE.match(name or ''):
+        return None
+    path = Path(REC_DIR) / name
+    return path if path.is_dir() else None
+
+
+def _rec_status() -> dict:
+    st = _read_status()
+    return {k: st.get(k) for k in ('rec_on', 'rec_session', 'rec_frames', 'rec_problems', 'rec_marks',
+                                    'rec_dropped', 'rec_mb', 'rec_elapsed_s', 'rec_free_gb',
+                                    'rec_stop_reason', 'rec_format', 'rec_mode', 'rec_shard', 'rec_ring_s')}
+
+
+@flask_app.route('/api/record', methods=['GET', 'POST'])
+def api_record():
+    """Recording control. POST {"action": "start"|"stop"|"mark", "rate": fps,
+    "views": bool, "mode": "continuous"|"triggered", "note": text}. No sign-in needed: it never moves the rover and
+    is capped by size, time and free disk (see recorder.py)."""
+    if request.method == 'POST':
+        body = request.get_json(silent=True) or {}
+        action = str(body.get('action', ''))
+        if action == 'start':
+            try:
+                rate = float(body.get('rate', REC_DEFAULT_RATE_HZ))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'rate must be a number'}), 400
+            # 'mode' optional: absent keeps the stored mode; invalid coerces to the default
+            write_state(record=True, record_rate=rate, record_views=bool(body.get('views', False)),
+                        record_mode=body.get('mode'))
+        elif action == 'stop':
+            write_state(record=False)
+        elif action == 'mark':
+            write_state(record_mark=str(body.get('note', '')) or 'marked')
+        else:
+            return jsonify({'error': 'action must be start, stop or mark'}), 400
+        log.info('[API] record %s from %s', action, request.remote_addr)
+    state = read_state()
+    return jsonify({'record': state['record'], 'rate': state['record_rate'],
+                    'views': state['record_views'], 'mode': state['record_mode'], **_rec_status()})
+
+
+_MODE_CACHE: dict = {}
+
+
+def _session_mode(path: Path, schema: int) -> str:
+    """Recording mode from meta.json (v1); v0 is always continuous. Cached by meta mtime."""
+    if schema == 0:
+        return 'continuous'
+    meta = path / 'meta.json'
+    try:
+        mt = meta.stat().st_mtime_ns
+    except OSError:
+        return 'continuous'
+    hit = _MODE_CACHE.get(str(meta))
+    if hit and hit[0] == mt:
+        return hit[1]
+    mode = recording_io.load_meta(path).get('mode')
+    mode = mode if isinstance(mode, str) and mode else 'continuous'
+    if len(_MODE_CACHE) > 500:
+        _MODE_CACHE.clear()
+    _MODE_CACHE[str(meta)] = (mt, mode)
+    return mode
+
+
+def _dir_stats(path: Path) -> dict:
+    info = recording_io.session_stats(path)
+    schema = recording_io.detect_schema(path)
+    info['schema'] = 1 if schema >= 1 else 0
+    info['mode'] = _session_mode(path, info['schema'])
+    return info
+
+
+@flask_app.route('/api/recordings', methods=['GET'])
+def api_recordings():
+    import config as _cfg
+    if _cfg.REC_LIST_REQUIRE_AUTH:
+        ok, _st = _rec_read_ok(request, force=True)
+        if not ok:
+            return _rec_auth_fail()
+    root = Path(REC_DIR)
+    out = []
+    if root.is_dir():
+        st = _rec_status()
+        rec_on, rec_session = st.get('rec_on'), st.get('rec_session')
+        for entry in sorted(root.iterdir(), reverse=True):
+            if entry.is_dir() and _SESSION_RE.match(entry.name):
+                info = _dir_stats(entry)
+                info['name'] = entry.name
+                info['active'] = bool(rec_on and rec_session == entry.name)
+                out.append(info)
+    return jsonify({'sessions': out[:100]})
+
+
+@flask_app.route('/api/recordings/<name>/token', methods=['POST'])
+def api_recording_token(name):
+    """Short-lived file token (?ft=) for <img>/download links of one recording."""
+    import config as _cfg
+    ok, status = _password_ok(request)
+    if not ok:
+        return _auth_fail(status)
+    if _session_path(name) is None:
+        return jsonify({'error': 'not found'}), 404
+    sid = 'pw'
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        payload, _ = _check_token(auth[7:].strip(), 'a')
+        if payload is not None:
+            sid = payload['sid']
+    now = time.time()
+    ttl = _cfg.REC_FILE_TOKEN_TTL_S
+    ft = _make_token('f', sid, now, now + ttl, {'n': name})
+    return jsonify({'ft': ft, 'expires_in': ttl})
+
+
+@flask_app.route('/api/recordings/<name>/log.jsonl')
+def api_recording_log(name):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'not found'}), 404
+    rows = recording_io.load_rows(path)
+    body = (json.dumps(r, separators=(',', ':')) + '\n' for r in rows)
+    return Response(body, mimetype='application/x-ndjson', headers={'Cache-Control': 'no-cache'})
+
+
+@flask_app.route('/api/recordings/<name>/events.jsonl')
+def api_recording_events(name):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'not found'}), 404
+    evs = recording_io.load_events(path)
+    body = (json.dumps(e, separators=(',', ':')) + '\n' for e in evs)
+    return Response(body, mimetype='application/x-ndjson', headers={'Cache-Control': 'no-cache'})
+
+
+@flask_app.route('/api/recordings/<name>/meta')
+def api_recording_meta(name):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'not found'}), 404
+
+    def jload(p):
+        try:
+            data = json.loads(p.read_text(encoding='utf-8'))
+            return data if isinstance(data, dict) else None
+        except (OSError, ValueError):
+            return None
+
+    try:
+        schema = recording_io.detect_schema(path)
+    except Exception:
+        schema = -1
+    man = jload(path / 'manifest.json')
+    totals = man.get('totals') if man else None
+    resp = jsonify({'schema': schema, 'meta': jload(path / 'meta.json'),
+                    'summary': jload(path / 'summary.json'),
+                    'manifest_totals': totals if isinstance(totals, dict) else None})
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@flask_app.route('/api/recordings/<name>', methods=['DELETE'])
+def api_recording_delete(name):
+    ok, status = _password_ok(request)
+    if not ok:
+        return _auth_fail(status)
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'no such recording'}), 404
+    st = _rec_status()
+    if st.get('rec_on') and st.get('rec_session') == name:
+        return jsonify({'error': 'stop the recording first'}), 409
+    shutil.rmtree(path, ignore_errors=True)
+    log.info('[API] deleted recording %s from %s', name, request.remote_addr)
+    return jsonify({'ok': True})
+
+
+@flask_app.route('/recordings/<name>/<path:rel>')
+def recording_file(name, rel):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    path = _session_path(name)
+    if path is None or not _REC_FILES.match(rel):
+        return jsonify({'error': 'not found'}), 404
+    target = path / rel
+    try:
+        inside = target.resolve().is_relative_to(path.resolve())
+    except (OSError, RuntimeError, ValueError):
+        inside = False
+    if not inside or not target.is_file():
+        return jsonify({'error': 'not found'}), 404
+    resp = send_file(target, conditional=True)
+    resp.headers['Cache-Control'] = 'no-cache' if rel.endswith(('.jsonl', '.json')) else 'max-age=3600'
+    return resp
+
+
+@flask_app.route('/recordings/<name>.tar')
+def recording_download(name):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    """The whole session as a tar stream (no temp file, no memory spike)."""
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'not found'}), 404
+    proc = subprocess.Popen(['tar', '-cf', '-', '--exclude=*.tmp', '--exclude=.*.tmp', '-C', str(REC_DIR), name], stdout=subprocess.PIPE)
+
+    def stream():
+        try:
+            while True:
+                chunk = proc.stdout.read(1 << 20)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            proc.stdout.close()
+            proc.wait()
+
+    return Response(stream(), mimetype='application/x-tar',
+                    headers={'Content-Disposition': f'attachment; filename={name}.tar'})
+
+
+# ── Derived views (re-run the current vision.py on a saved frame) ───
+import collections as _collections
+
+_DERIVED_LOCK = threading.Semaphore(1)
+_DERIVED_ACQUIRE_S = 10.0
+_DERIVED_CACHE_D: '_collections.OrderedDict' = _collections.OrderedDict()
+_DERIVED_CACHE_LOCK = threading.Lock()
+_ROW_INDEX: dict = {}
+
+
+def _row_index(path: Path):
+    """({i: row}, sorted [i]) for a session, cached by the log files' mtimes."""
+    files = [path / 'log.jsonl'] + sorted(path.glob('shards/s*/log.jsonl'))
+    sig = []
+    for f in files:
+        try:
+            st = f.stat()
+            sig.append((str(f), st.st_mtime_ns, st.st_size))
+        except OSError:
+            pass
+    sig = tuple(sig)
+    hit = _ROW_INDEX.get(str(path))
+    if hit and hit[0] == sig:
+        return hit[1], hit[2], hit[3]
+    by_i = {}
+    for r in recording_io.load_rows(path):
+        i = r.get('i')
+        if isinstance(i, int) and not isinstance(i, bool):
+            by_i[i] = r
+    order = sorted(by_i)
+    if len(_ROW_INDEX) > 50:
+        _ROW_INDEX.clear()
+    mt = max((s[1] for s in sig), default=0)
+    _ROW_INDEX[str(path)] = (sig, by_i, order, mt)
+    return by_i, order, mt
+
+
+@flask_app.route('/api/build')
+def api_build():
+    ok, _st = _rec_read_ok(request)
+    if not ok:
+        return _rec_auth_fail()
+    from build_info import get_build_info
+    b = get_build_info()
+    return jsonify({k: b.get(k) for k in ('git_commit', 'git_dirty', 'src_fingerprint')})
+
+
+@flask_app.route('/api/recordings/<name>/derived/<int:i>.jpg')
+def api_recording_derived(name, i):
+    ok, _st = _rec_read_ok(request, name)
+    if not ok:
+        return _rec_auth_fail()
+    import config as _cfg
+    kind = request.args.get('kind', 'views')
+    if kind not in ('views', 'annotated'):
+        return jsonify({'error': 'kind must be views or annotated'}), 400
+    try:
+        warm = int(request.args.get('warm', '0'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'warm must be an integer 0..10'}), 400
+    warm = max(0, min(10, warm))
+    if not _cfg.REC_DERIVED_WHILE_DRIVING and read_state().get('enabled'):
+        return jsonify({'error': 'busy: rover driving'}), 503
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'not found'}), 404
+    by_i, order, log_mt = _row_index(path)
+    row = by_i.get(i)
+    if row is None:
+        return jsonify({'error': 'no such frame'}), 404
+    from build_info import get_build_info
+    b = get_build_info()
+    fp = b.get('src_fingerprint') or ''
+    code = (b.get('git_commit') or 'nogit')[:7] + ('+dirty' if b.get('git_dirty') else '') + '+' + fp[:8]
+    key = (name, i, kind, warm if kind == 'views' else 0, fp, log_mt)
+    with _DERIVED_CACHE_LOCK:
+        data = _DERIVED_CACHE_D.get(key)
+        if data is not None:
+            _DERIVED_CACHE_D.move_to_end(key)
+    cache = 'hit'
+    if data is None:
+        cache = 'miss'
+        if not _DERIVED_LOCK.acquire(timeout=_DERIVED_ACQUIRE_S):
+            return jsonify({'error': 'busy'}), 503
+        try:
+            import cv2
+            import derived_views
+            fpth = recording_io.frame_path(path, row)
+            frame = cv2.imread(str(fpth)) if fpth else None
+            if frame is None:
+                return jsonify({'error': 'frame unreadable'}), 422
+            try:
+                if kind == 'annotated':
+                    img = derived_views.render_annotated(frame)
+                else:
+                    warm_frames = []
+                    if warm:
+                        dt = row.get('dt')
+                        prev = [j for j in order if j < i][-warm:]
+                        for j in prev:
+                            pdt = by_i[j].get('dt')
+                            if (isinstance(dt, (int, float)) and isinstance(pdt, (int, float))
+                                    and dt - pdt > 3.0):
+                                continue
+                            pp = recording_io.frame_path(path, by_i[j])
+                            pf = cv2.imread(str(pp)) if pp else None
+                            if pf is not None:
+                                warm_frames.append(pf)
+                    img = derived_views.render_views(frame, warm_frames, label=f'{name} #{i}')
+            except ValueError:
+                return jsonify({'error': 'invalid frame'}), 422
+            ok, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not ok:
+                return jsonify({'error': 'encode failed'}), 500
+            data = buf.tobytes()
+        finally:
+            _DERIVED_LOCK.release()
+        with _DERIVED_CACHE_LOCK:
+            _DERIVED_CACHE_D[key] = data
+            while len(_DERIVED_CACHE_D) > max(1, _cfg.REC_DERIVED_CACHE):
+                _DERIVED_CACHE_D.popitem(last=False)
+    return Response(data, mimetype='image/jpeg',
+                    headers={'X-Derived-Code': code, 'X-Cache': cache, 'Cache-Control': 'no-cache'})
+
+
+@flask_app.route('/review/<name>')
+def review(name):
+    if _session_path(name) is None:
+        return 'No such recording', 404
+    return render_template('review.html', name=name)
+
+
+@flask_app.route('/api/loop', methods=['GET', 'POST'])
+def api_loop():
+    """Wheel speed control: {"closed_loop": true} = encoder PID on the Arduino,
+    false = raw PWM (open loop). Useful to compare both on the bench."""
+    if request.method == 'POST':
+        body = request.get_json(silent=True) or {}
+        want = bool(body.get('closed_loop', True))
+        write_state(closed_loop=want)
+        log.info('[API] wheel control %s from %s',
+                 'CLOSED LOOP (PID)' if want else 'OPEN LOOP (PWM)', request.remote_addr)
+    return _control_json()
 
 
 @flask_app.route('/api/obstacle', methods=['GET', 'POST'])
@@ -254,7 +864,7 @@ def api_obstacle():
         if not want:
             ok, status = _password_ok(request)
             if not ok:
-                return jsonify({'error': 'wrong password'}), status
+                return _auth_fail(status)
         write_state(obstacle_stop=want)
         log.info('[API] obstacle stop %s from %s', 'ON' if want else 'OFF', request.remote_addr)
     return _control_json()

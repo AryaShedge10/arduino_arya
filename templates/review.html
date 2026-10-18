@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Review {{ name }}</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.45 system-ui, sans-serif; background: #10151d; color: #e8edf4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .8rem clamp(1rem, 3vw, 2rem); border-bottom: 1px solid #293342; }
+    header h1 { margin: 0; font-size: 1.05rem; }
+    header a { color: #60a5fa; text-decoration: none; font-weight: 600; }
+    .mono { font-family: ui-monospace, monospace; }
+    .muted { color: #93a2b8; }
+    main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 1rem; padding: 1rem clamp(1rem, 3vw, 2rem); max-width: 1500px; margin: auto; }
+    .card { background: #19212c; border: 1px solid #293342; border-radius: 12px; overflow: hidden; }
+    .card h2 { margin: 0; padding: .6rem .9rem; font-size: .85rem; color: #aebbd0; border-bottom: 1px solid #293342; }
+    .stage { position: relative; background: #080b10; }
+    .stage img { display: block; width: 100%; height: auto; }
+    .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .badge { position: absolute; left: .6rem; top: .6rem; padding: .25rem .6rem; border-radius: 999px; font: 700 .78rem/1 ui-monospace, monospace; background: rgba(0,0,0,.65); }
+    .badge.bad { background: rgba(185,28,28,.85); } .badge.mark { background: rgba(133,77,14,.9); }
+    .controls { display: grid; gap: .6rem; padding: .8rem .9rem; }
+    .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    input[type=range] { flex: 1; min-width: 8rem; accent-color: #60a5fa; }
+    button, select { padding: .45rem .8rem; border: 1px solid #344054; border-radius: 9px; background: #111821; color: #e8edf4; font: 700 .8rem/1 system-ui, sans-serif; cursor: pointer; }
+    button:hover { background: #1e3a8a; }
+    button.on { background: #1e3a8a; }
+    .views img { display: block; width: 100%; height: auto; background: #080b10; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .8rem; padding: .8rem .9rem; font-size: .82rem; }
+    .grid2 div { display: flex; justify-content: space-between; gap: .5rem; border-bottom: 1px solid #1f2937; padding: .15rem 0; }
+    .grid2 .k { color: #93a2b8; }
+    .sec { padding: .5rem .9rem 0; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: #6b7a90; }
+    ul.ev { list-style: none; margin: 0; padding: .4rem .9rem .9rem; max-height: 260px; overflow: auto; font: .78rem/1.4 ui-monospace, monospace; }
+    ul.ev li { padding: .2rem 0; border-bottom: 1px solid #1f2937; cursor: pointer; }
+    ul.ev li:hover { color: #60a5fa; }
+    ul.ev li.problem { color: #fbbf24; } ul.ev li.mark { color: #fb923c; font-weight: 700; }
+    .strip { height: 26px; background: #111821; position: relative; border-radius: 6px; margin: 0 .9rem .8rem; }
+    .strip i { position: absolute; top: 3px; width: 3px; height: 20px; border-radius: 2px; background: #fbbf24; }
+    .strip i.mark { background: #fb923c; width: 4px; } .strip i.cur { background: #fff; width: 2px; top: 0; height: 26px; }
+    #signin { max-width: 26rem; margin: 1.2rem auto; padding: 1rem 1.1rem; background: #19212c; border: 1px solid #293342; border-radius: 12px; }
+    #signin h2 { margin: 0 0 .3rem; font-size: .95rem; }
+    #signin form { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .6rem; }
+    #signin input[type=password] { flex: 1; min-width: 10rem; padding: .45rem .7rem; border: 1px solid #344054; border-radius: 9px; background: #111821; color: #e8edf4; font: inherit; }
+    #signin .err { color: #f87171; font-size: .82rem; min-height: 1.1em; margin-top: .4rem; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Recording <span class="mono">{{ name }}</span></h1>
+    <span class="muted" id="meta">loading…</span>
+    <span class="muted mono" id="schemainfo"></span>
+    <a href="/#record">← dashboard</a>
+    <a href="/recordings/{{ name }}.tar" id="dl">download session (.tar)</a>
+  </header>
+  <div id="banner" class="muted" style="display:none;padding:.4rem clamp(1rem, 3vw, 2rem);background:#3b2f10;color:#fbbf24;font-size:.82rem"></div>
+  <div id="signin" hidden>
+    <h2>Sign in to view this recording</h2>
+    <div class="muted">This rover requires the dashboard password for recordings. The session is shared with the dashboard.</div>
+    <form id="signin-form">
+      <input type="password" id="signin-pw" placeholder="password" autocomplete="current-password" aria-label="Password">
+      <button type="submit" id="signin-btn">Sign in</button>
+    </form>
+    <div class="err" id="signin-err" role="alert"></div>
+  </div>
+  <main>
+    <div>
+      <section class="card">
+        <h2>Camera frame <span class="muted">· cyan = detected line, yellow dot = lookahead point</span></h2>
+        <div class="stage">
+          <img id="frame" alt="recorded frame">
+          <canvas id="overlay"></canvas>
+          <span class="badge" id="badge">—</span>
+        </div>
+        <div class="strip" id="strip" title="problem frames (amber), marked frames (orange), current frame (white)"></div>
+        <div class="controls">
+          <div class="row">
+            <button id="prev" title="Left arrow">◀</button>
+            <button id="play" title="Space">▶ Play</button>
+            <button id="next" title="Right arrow">▶</button>
+            <input id="seek" type="range" min="0" max="0" value="0">
+            <span class="mono" id="pos">0 / 0</span>
+          </div>
+          <div class="row">
+            <button id="prevflag" title="[">⏮ prev flagged</button>
+            <button id="nextflag" title="]">next flagged ⏭</button>
+            <select id="filter" aria-label="Frames to show">
+              <option value="all">all frames</option>
+              <option value="flag">problems + marks + triggers only</option>
+              <option value="mark">marks only</option>
+            </select>
+            <select id="speed" aria-label="Play speed"><option value="1">1×</option><option value="2">2×</option><option value="0.5">0.5×</option></select>
+            <label class="muted"><input type="checkbox" id="showviews" checked> detector views</label>
+            <label class="muted"><input type="checkbox" id="showovl" checked> overlay</label>
+            <label class="muted" title="re-derived views: replay up to 5 previous saved frames first"><input type="checkbox" id="warm"> warm start</label>
+          </div>
+        </div>
+      </section>
+      <section class="card views" id="viewscard" style="margin-top:1rem">
+        <h2>Detector views <span class="muted">· top-down view | yellow mask | obstacle test region | obstacle mask | floor difference</span></h2>
+        <img id="viewimg" alt="detector views">
+        <div class="muted mono" id="vstatus" style="padding:.3rem .9rem;font-size:.74rem;display:none"></div>
+        <div class="muted" id="noview" style="padding:.8rem .9rem">No detector views saved for this frame (saved for problem and marked frames, or for every frame when "views for every frame" was on).</div>
+      </section>
+    </div>
+    <div>
+      <section class="card">
+        <h2>This frame</h2>
+        <div class="grid2" id="detail"></div>
+      </section>
+      <section class="card" style="margin-top:1rem">
+        <h2>Events <span class="muted" id="evcount"></span></h2>
+        <ul class="ev" id="events"></ul>
+      </section>
+      <section class="card" style="margin-top:1rem">
+        <h2>Replay offline</h2>
+        <div class="sec">to re-run the CURRENT detector on these frames</div>
+        <pre class="mono muted" style="margin:0;padding:.5rem .9rem .9rem;white-space:pre-wrap;font-size:.76rem">python3 replay_recording.py {{ name }}</pre>
+      </section>
+    </div>
+  </main>
+  <script>{% include '_auth_core.js' %}</script>
+  <script>
+    const NAME = {{ name|tojson }};
+    const $ = (id) => document.getElementById(id);
+    let rows = [], events = [], view = [], pos = 0, timer = null;
+    const base = `/recordings/${NAME}/`;
+    const f = (v, d = 2) => (v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(d));
+
+    const api = `/api/recordings/${NAME}/`;
+    let M = {};            // {schema, meta, summary, manifest_totals}
+    const isFlag = (r) => !!(r.problem || r.mark || (Array.isArray(r.triggers) && r.triggers.length));
+    const parseLines = (t) => t.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+    // try the new merged endpoint, fall back to the old static file on 404 / network failure
+    // ---- auth: only used when the server answers 401 (AGV_REC_REQUIRE_AUTH=1); otherwise nothing is sent ----
+    class AuthError extends Error {}
+    let authSeen = false, loadSeq = 0;
+    const authHeaders = () => Auth.headers();
+    function showSignin() {
+      authSeen = true;
+      const p = $('signin'); if (p.hidden) { p.hidden = false; $('signin-err').textContent = ''; $('signin-pw').value = ''; setTimeout(() => $('signin-pw').focus(), 30); }
+    }
+    function hideSignin() { $('signin').hidden = true; }
+    // fetch with the Bearer token; on 401 try Auth.ensure() once and retry, else show the sign-in panel
+    async function rfetch(url, opts = {}) {
+      const go = () => fetch(url, { cache: 'no-store', ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
+      let r = await go();
+      if (r.status === 401) {
+        authSeen = true;
+        if (await Auth.ensure()) r = await go();
+        if (r.status === 401) { if (Auth.data) Auth.clear(); showSignin(); }
+      }
+      return r;
+    }
+    // file token for <img src> and download links
+    const FT = { ft: null, exp: 0, p: null };
+    async function getFt(force = false) {
+      if (!force && FT.ft !== null && Date.now() < FT.exp) return FT.ft;
+      if (FT.p) return FT.p;
+      FT.p = (async () => {
+        if (force && FT.ft === '' && isFinite(FT.exp) && Date.now() < FT.exp) return '';   // backing off after a failure
+        // never ask for a token without a valid session (that would count as a wrong password on the server)
+        if (!(await Auth.ensure()) || !Auth.accessValid()) { FT.ft = null; return ''; }
+        try {
+          const r = await fetch(api + 'token', { method: 'POST', headers: authHeaders() });
+          if (r.status === 404) { FT.ft = ''; FT.exp = Infinity; return ''; }          // old server: no token needed
+          if (r.ok) {
+            const j = await r.json();
+            FT.ft = j.ft || ''; FT.exp = Date.now() + 0.8 * (j.expires_in || 600) * 1000;
+            return FT.ft;
+          }
+          if (r.status === 401) { authSeen = true; if (Auth.data) Auth.clear(); showSignin(); }
+        } catch (e) {}
+        FT.ft = ''; FT.exp = Date.now() + 30000;                                       // do not hammer
+        return '';
+      })().finally(() => { FT.p = null; });
+      return FT.p;
+    }
+    const u = (url) => FT.ft ? url + (url.includes('?') ? '&' : '?') + 'ft=' + encodeURIComponent(FT.ft) : url;
+    setInterval(() => { if (FT.ft && Date.now() >= FT.exp) getFt(); }, 15000);
+    // a protected image failed (token expired?): re-mint once and retry
+    for (const id of ['frame', 'viewimg']) {
+      const img = $(id);
+      img.addEventListener('error', async () => {
+        const src = img.getAttribute('src');
+        if (!src || src.startsWith('blob:') || img._retried === src) return;
+        img._retried = src;
+        if (!(await Auth.ensure())) { if (authSeen) showSignin(); return; }
+        const ft = await getFt(true);
+        const clean = src.replace(/[?&]ft=[^&]*$/, '');
+        const nu = ft ? clean + (clean.includes('?') ? '&' : '?') + 'ft=' + encodeURIComponent(ft) : clean;
+        if (nu !== src) img.src = nu;
+      });
+    }
+    $('signin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await Auth.login($('signin-pw').value);
+      if (res.ok) { hideSignin(); FT.ft = null; load(); return; }
+      $('signin-err').textContent = res.error; $('signin-pw').select();
+    });
+    // signed in on the dashboard tab meanwhile
+    Auth.onChange = () => { if (!$('signin').hidden && Auth.refreshValid()) { hideSignin(); FT.ft = null; load(); } };
+    $('dl').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await Auth.ensure();
+      const ft = await getFt(true);
+      if (!ft && authSeen) { showSignin(); return; }
+      location.href = `/recordings/${NAME}.tar` + (ft ? '?ft=' + encodeURIComponent(ft) : '');
+    });
+    // try the new merged endpoint, fall back to the old static file on 404 / network failure
+    async function getText(newUrl, oldUrl) {
+      try {
+        const r = await rfetch(newUrl);
+        if (r.ok) return await r.text();
+        if (r.status === 401) throw new AuthError();
+      } catch (e) { if (e instanceof AuthError) throw e; }
+      const r2 = await rfetch(oldUrl); if (r2.status === 401) throw new AuthError();
+      if (!r2.ok) throw new Error(oldUrl + ' ' + r2.status);
+      return await r2.text();
+    }
+    async function load() {
+      const my = ++loadSeq;
+      await Auth.ensure();
+      try { rows = parseLines(await getText(api + 'log.jsonl', base + 'log.jsonl')); }
+      catch (e) { if (e instanceof AuthError) return; throw e; }
+      if (my !== loadSeq) return;
+      rows.sort((a, b) => (a.i ?? 0) - (b.i ?? 0));
+      try { events = parseLines(await getText(api + 'events.jsonl', base + 'events.jsonl')); } catch (e) {}
+      try {
+        try { const r = await rfetch(api + 'meta'); if (!r.ok) throw 0; M = await r.json(); }
+        catch (e) { const r = await rfetch(base + 'meta.json'); M = { schema: 0, meta: await r.json() }; }
+        const m = M.meta || {};
+        const probs = rows.filter(r => r.problem).length, marks = rows.filter(r => r.mark).length;
+        $('meta').textContent = `${m.started_iso} · ${rows.length} frames · ${m.rate_hz} fps · ${probs} problem · ${marks} marked`;
+        $('schemainfo').textContent = `schema ${M.schema ?? '?'}` + (m.mode ? ` · ${m.mode}` : '');
+      } catch (e) { $('meta').textContent = `${rows.length} frames`; }
+      await getFt();          // no network unless there is a valid session
+      hideSignin();
+      applyFilter(); renderEvents(); show(0);
+      checkBuild();
+    }
+    async function checkBuild() {
+      try {
+        const rec = M && M.meta && M.meta.code && M.meta.code.src_fingerprint;
+        if (!rec) return;
+        const r = await rfetch('/api/build'); if (!r.ok) return;
+        const now = (await r.json()).src_fingerprint;
+        if (!now || now === rec) return;
+        const b = $('banner');
+        b.textContent = `views are re-derived with different code than the recording (recorded ${String(rec).slice(0, 7)}, now ${String(now).slice(0, 7)})`;
+        b.style.display = '';
+      } catch (e) {}
+    }
+    function applyFilter() {
+      const flt = $('filter').value;
+      const keep = (r) => flt === 'all' || (flt === 'mark' ? !!r.mark : isFlag(r));
+      const cur = view.length ? view[pos] : null;
+      view = rows.map((r, i) => keep(r) ? i : -1).filter(i => i >= 0);
+      if (!view.length) view = rows.map((_, i) => i);
+      $('seek').max = Math.max(0, view.length - 1);
+      const np = cur == null ? 0 : view.findIndex(i => i >= cur);
+      pos = np < 0 ? view.length - 1 : np;
+      drawStrip(); show(pos);
+    }
+    function drawStrip() {
+      const st = $('strip'); st.innerHTML = '';
+      const n = Math.max(1, rows.length - 1);
+      rows.forEach((r, i) => {
+        if (!isFlag(r)) return;
+        const e = document.createElement('i'); e.className = r.mark ? 'mark' : '';
+        e.style.left = `calc(${(i / n) * 100}% - 1px)`; st.appendChild(e);
+      });
+      const c = document.createElement('i'); c.className = 'cur'; c.id = 'curmark'; st.appendChild(c);
+    }
+    function show(p) {
+      if (!rows.length) return;
+      pos = Math.max(0, Math.min(view.length - 1, p));
+      const r = rows[view[pos]];
+      $('seek').value = pos; $('pos').textContent = `${pos + 1} / ${view.length}  (#${r.i})`;
+      const cm = $('curmark'); if (cm) cm.style.left = `calc(${(view[pos] / Math.max(1, rows.length - 1)) * 100}% - 1px)`;
+      { const src = u(base + r.file); if ($('frame').getAttribute('src') !== src) $('frame').src = src; if (FT.ft && Date.now() >= FT.exp) getFt(); }
+      const b = $('badge');
+      b.textContent = `${r.dt.toFixed(1)} s · ${r.decision.direction}${r.problem ? ' · ' + r.problem : ''}${r.mark ? ' · MARK: ' + r.mark : ''}`;
+      b.className = 'badge' + (r.mark ? ' mark' : r.problem ? ' bad' : '');
+      const vi = $('viewimg'), want = $('showviews').checked, has = !!r.views && want;
+      $('viewscard').style.display = want ? '' : 'none';
+      if (has) {
+        vreq++; clearTimeout(derivedTimer);
+        vi.style.display = ''; $('noview').style.display = 'none'; $('vstatus').style.display = 'none';
+        vi.src = u(base + r.views);
+      } else if (want) {
+        scheduleDerived();
+      }
+      renderDetail(r);
+    }
+    // ---- derived views (v1 recordings keep no saved views; the server re-renders them) ----
+    let vreq = 0, derivedTimer = null, derivedBusy = false, derivedPending = false, lastDerived = 0, derivedUrl = null;
+    function scheduleDerived() {
+      clearTimeout(derivedTimer);
+      const wait = timer ? Math.max(0, 600 - (Date.now() - lastDerived)) : 0;
+      derivedTimer = setTimeout(doDerived, wait);
+    }
+    async function doDerived() {
+      if (!rows.length) return;
+      if (derivedBusy) { derivedPending = true; return; }
+      const r = rows[view[pos]];
+      if (r.views || !$('showviews').checked) return;
+      derivedBusy = true; lastDerived = Date.now();
+      const my = ++vreq, vi = $('viewimg'), nv = $('noview'), vs = $('vstatus');
+      const url = `${api}derived/${r.i}.jpg?kind=views` + ($('warm').checked ? '&warm=5' : '');
+      let blob = null, msg = '', status = '';
+      try {
+        const resp = await rfetch(url);
+        if (resp.ok) {
+          blob = await resp.blob();
+          status = `re-derived · cache ${resp.headers.get('X-Cache') || '?'} · code ${resp.headers.get('X-Derived-Code') || '?'}`;
+        } else {
+          let j = null; try { j = await resp.json(); } catch (e) {}
+          msg = (j && j.error) ? j.error : `no detector views (HTTP ${resp.status})`;
+        }
+      } catch (e) { msg = 'no detector views (network error)'; }
+      derivedBusy = false;
+      const stale = my !== vreq || rows[view[pos]].i !== r.i;
+      if (!stale) {
+        if (blob) {
+          const u = URL.createObjectURL(blob), old = derivedUrl; derivedUrl = u;
+          vi.onload = () => { if (old) URL.revokeObjectURL(old); };
+          vi.src = u; vi.style.display = ''; nv.style.display = 'none';
+          vs.textContent = status; vs.style.display = '';
+        } else {
+          vi.style.display = 'none'; nv.textContent = msg; nv.style.display = ''; vs.style.display = 'none';
+        }
+      }
+      if (derivedPending || stale) { derivedPending = false; scheduleDerived(); }
+    }
+    function renderDetail(r) {
+      const L = r.line || {}, O = r.obstacle || {}, D = r.decision || {}, W = r.wheels || {};
+      const items = [
+        ['line found', L.found ? 'yes' : 'NO'], ['reason', L.reason || '—'],
+        ['offset', f(L.offset_m, 3) + ' m'], ['angle', f(L.angle_deg, 1) + '°'],
+        ['lookahead', f(L.lookahead_m, 3) + ' m'], ['curvature', f(L.curvature, 3) + ' /m'],
+        ['strips', L.strips], ['obstacle', `${O.state} (raw ${O.raw}) ${f(O.distance_m, 2)} m`],
+        ['direction', D.direction], ['command', D.cmd], ['tracking', `${D.track} ×${D.boost}`],
+        ['v / ω target', `${f(D.v, 0)} / ${f(D.omega, 0)}`], ['mode', r.mode + (r.enabled ? ' · motors ON' : ' · motors off')],
+        ['max speed', r.speed_pct + ' %'], ['PWM L · R', `${W.applied_l} · ${W.applied_r}`],
+        ['tgt L · R', `${f(W.tgt_l_mps)} · ${f(W.tgt_r_mps)} m/s`], ['meas L · R', `${f(W.meas_l_mps)} · ${f(W.meas_r_mps)} m/s`],
+        ['vision', f(r.vision_ms, 1) + ' ms'], ['decision', D.text],
+      ];
+      const E = r.enc || {}, nn = (v) => v != null && !Number.isNaN(v);
+      const pair = (a, b, d = 0) => (nn(a) || nn(b)) ? `${f(a, d)} · ${f(b, d)}` : null;
+      const extra = [
+        ['save', r.save], ['triggers', Array.isArray(r.triggers) && r.triggers.length ? r.triggers.join(', ') : null],
+        ['rpm L · R', pair(W.rpm_l, W.rpm_r, 1)], ['ticks since zero L · R', pair(E.rel_l, E.rel_r)],
+        ['encoder faults', nn(E.fault_bits) ? E.fault_bits : null], ['frame age', nn(r.frame_age_ms) ? f(r.frame_age_ms, 0) + ' ms' : null],
+        ['firmware', E.fw], ['luma', nn(r.luma) ? f(r.luma, 1) : null],
+        ['closed loop', (r.closed_loop_wanted != null || W.closed != null || W.closed_loop != null)
+          ? `wanted ${r.closed_loop_wanted ?? '—'} · active ${W.closed ?? W.closed_loop ?? '—'}` : null],
+      ].filter(([, v]) => v != null && v !== '');
+      items.push(...extra);
+      $('detail').innerHTML = items.map(([k, v]) => `<div><span class="k">${k}</span><span class="mono">${String(v).replace(/</g, '&lt;')}</span></div>`).join('');
+      drawOverlay(r);
+    }
+    function drawOverlay(r) {
+      const img = $('frame'), cv = $('overlay');
+      const draw = () => {
+        const w = img.naturalWidth || 1280, h = img.naturalHeight || 720;
+        cv.width = w; cv.height = h; const c = cv.getContext('2d'); c.clearRect(0, 0, w, h);
+        if (!$('showovl').checked) return;
+        const L = r.line || {}, im = (M.meta && M.meta.image) || {};
+        const sx = w / (im.frame_w || w), sy = h / (im.frame_h || h);   // logged px are in ORIGINAL frame space
+        if (L.curve_px && L.curve_px.length > 1) {
+          c.strokeStyle = '#22d3ee'; c.lineWidth = Math.max(3, w / 320); c.beginPath();
+          L.curve_px.forEach(([x, y], i) => i ? c.lineTo(x * sx, y * sy) : c.moveTo(x * sx, y * sy)); c.stroke();
+        }
+        if (L.look_px) { c.fillStyle = '#fde047'; c.beginPath(); c.arc(L.look_px[0] * sx, L.look_px[1] * sy, Math.max(6, w / 140), 0, 7); c.fill(); }
+      };
+      if (img.complete) draw(); else img.onload = draw;
+    }
+    function renderEvents() {
+      $('evcount').textContent = `(${events.length})`;
+      $('events').innerHTML = events.map((e, k) => `<li class="${e.kind}" data-i="${e.i}">${e.dt.toFixed(1)}s · ${e.kind}: ${String(e.text).replace(/</g, '&lt;')}</li>`).join('');
+      $('events').querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+        const idx = rows.findIndex(r => r.i >= Number(li.dataset.i)); if (idx < 0) return;
+        $('filter').value = 'all'; applyFilter(); const p = view.findIndex(i => i >= idx); show(p < 0 ? 0 : p);
+      }));
+    }
+    function jumpFlag(dir) {
+      for (let p = pos + dir; p >= 0 && p < view.length; p += dir) {
+        const r = rows[view[p]]; if (isFlag(r)) { show(p); return; }
+      }
+    }
+    function stopPlay() { if (timer) { clearTimeout(timer); timer = null; $('play').textContent = '▶ Play'; $('play').classList.remove('on'); } }
+    $('play').addEventListener('click', () => { if (timer) stopPlay(); else { $('play').textContent = '❚❚ Pause'; $('play').classList.add('on'); playLoop(); } });
+    function playLoop() {
+      if (pos >= view.length - 1) { stopPlay(); return; }
+      const a = rows[view[pos]], b = rows[view[pos + 1]];
+      show(pos + 1);
+      const gap = Math.max(40, Math.min(1000, ((b.dt - a.dt) * 1000) / Number($('speed').value)));
+      timer = setTimeout(playLoop, gap);
+    }
+    $('prev').addEventListener('click', () => { stopPlay(); show(pos - 1); });
+    $('next').addEventListener('click', () => { stopPlay(); show(pos + 1); });
+    $('seek').addEventListener('input', (e) => { stopPlay(); show(Number(e.target.value)); });
+    $('prevflag').addEventListener('click', () => { stopPlay(); jumpFlag(-1); });
+    $('nextflag').addEventListener('click', () => { stopPlay(); jumpFlag(1); });
+    $('filter').addEventListener('change', applyFilter);
+    $('showviews').addEventListener('change', () => show(pos));
+    $('warm').addEventListener('change', () => show(pos));
+    $('showovl').addEventListener('change', () => show(pos));
+    document.addEventListener('keydown', (e) => {
+      if (['INPUT', 'SELECT'].includes(document.activeElement.tagName) && document.activeElement.type !== 'range' && document.activeElement.type !== 'checkbox') return;
+      if (e.key === 'ArrowLeft') { stopPlay(); show(pos - 1); }
+      else if (e.key === 'ArrowRight') { stopPlay(); show(pos + 1); }
+      else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+      else if (e.key === '[') { stopPlay(); jumpFlag(-1); } else if (e.key === ']') { stopPlay(); jumpFlag(1); }
+    });
+    load();
+  </script>
+</body>
+</html>

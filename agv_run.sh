@@ -12,6 +12,10 @@
 # To stop a backgrounded instance, send SIGINT to both PIDs:
 #   kill -INT <agv_run.sh_pid> <web.py_pid>
 
+# Recorder rollback switches (defaults are AGV_REC_FORMAT=v1, AGV_REC_REQUIRE_AUTH=1):
+#   AGV_REC_FORMAT=v0  ./agv_run.sh          # old single-file recorder
+#   AGV_REC_REQUIRE_AUTH=0 ./agv_run.sh      # recordings endpoints without sign-in
+
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export PYTHONPATH="${HERE}${PYTHONPATH:+:$PYTHONPATH}"

@@ -12,7 +12,7 @@
     header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem clamp(1rem, 4vw, 3rem); border-bottom: 1px solid #293342; }
     h1 { margin: 0; font-size: 1.25rem; letter-spacing: .04em; }
     main { max-width: 1440px; margin: auto; padding: 1.25rem clamp(1rem, 4vw, 3rem); }
-    .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1rem; }
+    .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1rem; align-items: start; }
     .card { background: #19212c; border: 1px solid #293342; border-radius: 12px; overflow: hidden; }
     .card h2 { margin: 0; padding: .9rem 1rem; font-size: .95rem; color: #aebbd0; border-bottom: 1px solid #293342; }
     .video { display: block; width: 100%; min-height: 220px; max-height: 72vh; object-fit: contain; background: #080b10; }
@@ -101,24 +101,294 @@
     .startbtn:disabled { opacity: .4; cursor: not-allowed; }
     .manual .note { color: #93a2b8; font-size: .78rem; margin: 0; }
     .manual .live { font: .85rem/1 ui-monospace, monospace; color: #93a2b8; }
+    .mono { font-family: ui-monospace, monospace; }
+    .chassis { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1rem; align-items: start; }
+    #chassis-svg { width: 100%; height: auto; background: #111821; border-radius: 10px; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .ch-body { fill: #1b2431; stroke: #3b4a60; stroke-width: 2; }
+    .ch-front { fill: #4ade80; }
+    .ch-cam { fill: #1e3a8a; stroke: #60a5fa; }
+    .ch-board { fill: #14532d; stroke: #4ade80; stroke-width: 1; }
+    .ch-axle { stroke: #3b4a60; stroke-width: 6; }
+    .ch-wheel { fill: #0b0f15; stroke: #3b4a60; stroke-width: 2; }
+    .ch-wheel-edge { fill: none; stroke: #6b7a90; stroke-width: 2; }
+    .ch-side { cursor: pointer; }
+    .ch-side:hover .ch-wheel-edge, .ch-side.held .ch-wheel-edge { stroke: #4ade80; stroke-width: 3; }
+    .ch-side.fault .ch-wheel-edge { stroke: #f87171; stroke-width: 3; }
+    .ch-enc { fill: #854d0e; } .ch-enc.ok { fill: #166534; } .ch-enc.bad { fill: #b91c1c; }
+    .ch-m1 { font: 700 10px ui-monospace, monospace; fill: #e8edf4; }
+    .ch-m2 { font: 600 8.5px ui-monospace, monospace; fill: #93a2b8; }
+    .ch-small { font: 600 11px system-ui, sans-serif; fill: #aebbd0; }
+    .ch-tiny { font: 600 9px system-ui, sans-serif; fill: #93a2b8; }
+    .ch-head { font: 800 11px system-ui, sans-serif; fill: #aebbd0; letter-spacing: .08em; }
+    .ch-read { font: 700 13px ui-monospace, monospace; fill: #e8edf4; }
+    .ch-read2 { font: 600 11px ui-monospace, monospace; fill: #93a2b8; }
+    .ch-arrow-m { stroke: #4ade80; stroke-width: 7; stroke-linecap: round; }
+    .ch-arrow-t { stroke: #fbbf24; stroke-width: 3; stroke-dasharray: 5 4; stroke-linecap: round; }
+    .ch-tread { stroke: #3b4a60; stroke-width: 3; }
+    .ch-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .8rem; }
+    .ch-stats .value { font-size: 1rem; }
+    .chart-wrap { padding: 0 1rem; }
+    .speed-chart { width: 100%; height: auto; background: #111821; border-radius: 10px; display: block; }
+    .legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .75rem; color: #93a2b8; padding: .5rem 0 .2rem; }
+    .legend i { display: inline-block; width: 1.4rem; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: .35rem; }
+    .legend i:not(.dash) { border-color: currentColor; }
+    .legend i.dash { border-top-style: dashed; }
+    .rowline { display: flex; align-items: center; gap: .8rem; }
+    .testbtns { display: flex; flex-wrap: wrap; gap: .5rem; touch-action: none; }
+    .testbtns button { padding: .65rem 1rem; border: 2px solid #344054; border-radius: 12px; background: #111821; color: #e8edf4; font: 700 .85rem/1 system-ui, sans-serif; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .testbtns button.held { background: #166534; border-color: #4ade80; }
+    .testbtns button.steptest { border-color: #1e3a8a; background: #1e3a8a; }
+    .testbtns button:disabled { opacity: .35; cursor: not-allowed; }
+    @media (max-width: 760px) { .chassis { grid-template-columns: 1fr; } }
+    .dtest { padding: 1rem; display: grid; gap: .8rem; border-top: 1px solid #293342; margin-top: .6rem; }
+    .dtest h3 { margin: 0; font-size: .85rem; color: #aebbd0; letter-spacing: .04em; }
+    .dt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    .dt-col { background: #111821; border-radius: 10px; padding: .8rem; display: grid; gap: .5rem; }
+    .dt-val { font: 800 1.6rem/1 ui-monospace, monospace; }
+    .dt-sub { font: .78rem/1.3 ui-monospace, monospace; color: #93a2b8; min-height: 1.1rem; }
+    .dt-col input[type=range] { width: 100%; accent-color: #60a5fa; height: 1.6rem; }
+    .dt-btns { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .dt-btns button, .dtest .mini { padding: .5rem .7rem; border: 2px solid #344054; border-radius: 10px; background: #0b0f15; color: #e8edf4; font: 700 .8rem/1 ui-monospace, monospace; cursor: pointer; }
+    .dt-btns button:active, .dtest .mini:active { background: #1e3a8a; }
+    .dtest .mini.reset { border-color: #854d0e; background: #854d0e; }
+    .dtest .mini.go { border-color: #1e3a8a; background: #1e3a8a; }
+    .dtest :disabled { opacity: .4; cursor: not-allowed; }
+    .dtest.off .dt-col { opacity: .55; }
+    @media (max-width: 760px) { .dt-cols { grid-template-columns: 1fr; } }
+    header { position: sticky; top: 0; z-index: 20; background: rgba(16,21,29,.92); backdrop-filter: blur(6px); }
+    .hdr-right { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; justify-content: flex-end; }
+    .auth { display: flex; align-items: center; gap: .5rem; font: 600 .78rem/1 ui-monospace, monospace; color: #93a2b8; }
+    .auth .who { padding: .3rem .6rem; border-radius: 999px; background: #344054; white-space: nowrap; }
+    .auth.in .who { background: #14532d; color: #bbf7d0; }
+    .auth.warn .who { background: #854d0e; color: #fde68a; }
+    .auth button { padding: .4rem .8rem; border-radius: 999px; border: 1px solid #344054; background: #111821; color: #e8edf4; font: 700 .75rem/1 system-ui, sans-serif; cursor: pointer; }
+    .auth button:hover { background: #1e3a8a; }
+    .strip { display: flex; flex-wrap: wrap; gap: .5rem; padding: .7rem clamp(1rem, 4vw, 3rem); border-bottom: 1px solid #293342; background: #131a23; }
+    .chip { display: flex; flex-direction: column; gap: .15rem; padding: .35rem .75rem; border-radius: 10px; background: #19212c; border: 1px solid #293342; min-width: 7.5rem; }
+    .chip .k { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: #6b7a90; }
+    .chip .v { font: 700 .9rem/1.2 ui-monospace, monospace; }
+    .chip.good .v { color: #4ade80; } .chip.warn .v { color: #fbbf24; } .chip.bad .v { color: #f87171; }
+    .card h2 { cursor: pointer; display: flex; align-items: center; gap: .4rem; user-select: none; }
+    .card.nocollapse h2 { cursor: default; }
+    .card h2::after { content: '▾'; margin-left: auto; color: #6b7a90; font-size: .8rem; transition: transform .15s; }
+    .card.nocollapse h2::after { content: ''; }
+    .card.collapsed h2::after { transform: rotate(-90deg); }
+    .card.collapsed > :not(h2) { display: none !important; }
+    :focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    button { transition: background-color .15s, border-color .15s, transform .05s; }
+    dialog#login-dlg { border: 1px solid #344054; border-radius: 14px; background: #19212c; color: #e8edf4; padding: 1.4rem 1.5rem; width: min(92vw, 380px); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+    dialog#login-dlg::backdrop { background: rgba(0,0,0,.6); }
+    dialog#login-dlg h3 { margin: 0 0 .3rem; font-size: 1.05rem; }
+    dialog#login-dlg p { margin: 0 0 .9rem; color: #93a2b8; font-size: .82rem; }
+    dialog#login-dlg input { width: 100%; padding: .75rem .9rem; border-radius: 10px; border: 2px solid #344054; background: #0b0f15; color: #e8edf4; font: 600 1.05rem/1 ui-monospace, monospace; }
+    dialog#login-dlg .err { color: #f87171; font-size: .8rem; min-height: 1.1rem; margin: .4rem 0 .6rem; }
+    dialog#login-dlg .row { display: flex; gap: .6rem; justify-content: flex-end; }
+    dialog#login-dlg button { padding: .6rem 1.1rem; border-radius: 999px; border: 0; font: 800 .85rem/1 system-ui, sans-serif; color: #fff; cursor: pointer; }
+    dialog#login-dlg .ok { background: #166534; } dialog#login-dlg .cancel { background: #344054; }
+    #toasts { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 50; max-width: min(92vw, 360px); }
+    .toast { padding: .7rem .9rem; border-radius: 10px; background: #19212c; border: 1px solid #344054; border-left: 4px solid #60a5fa; font-size: .85rem; box-shadow: 0 8px 24px rgba(0,0,0,.45); animation: toast-in .18s ease-out; }
+    .toast.err { border-left-color: #f87171; } .toast.ok { border-left-color: #4ade80; } .toast.warn { border-left-color: #fbbf24; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    [hidden] { display: none !important; }
+    .stack { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+    .grid.single { grid-template-columns: minmax(0, 1fr); }
+    .tabs { display: flex; gap: .35rem; margin: 0 0 1rem; padding: .3rem; background: #131a23; border: 1px solid #293342; border-radius: 12px; overflow-x: auto; }
+    .tabs button { position: relative; flex: 1 0 auto; padding: .65rem 1.1rem; border: 0; border-radius: 9px; background: transparent; color: #93a2b8; font: 700 .9rem/1 system-ui, sans-serif; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
+    .tabs button:hover { color: #e8edf4; background: #19212c; }
+    .tabs button[aria-selected="true"] { background: #1e3a8a; color: #fff; }
+    .tabdot { display: none; position: absolute; top: .45rem; right: .5rem; width: .5rem; height: .5rem; border-radius: 50%; background: #f87171; box-shadow: 0 0 6px #f87171aa; }
+    .tabdot.on { display: block; } .tabdot.warn { background: #fbbf24; box-shadow: 0 0 6px #fbbf24aa; }
+    .tabpanel { animation: tab-in .15s ease-out; }
+    @keyframes tab-in { from { opacity: 0; } to { opacity: 1; } }
+    .tabdot.rec { background: #ef4444; animation: recblink 1s steps(2, start) infinite; }
+    @keyframes recblink { to { visibility: hidden; } }
+    .rec-on { color: #fecaca; }
+    #record-card .mini, #sessions-card .mini, .chip .mini { padding: .5rem .9rem; border: 2px solid #344054; border-radius: 10px; background: #0b0f15; color: #e8edf4; font: 700 .8rem/1 ui-monospace, monospace; cursor: pointer; }
+    #record-card .mini.go, .chip .mini.go { border-color: #854d0e; background: #854d0e; }
+    #record-card .mini:disabled, .chip .mini:disabled { opacity: .4; cursor: not-allowed; }
+    #sessions td a { color: #60a5fa; text-decoration: none; margin-right: .7rem; font-weight: 700; }
+    #sessions td button.dl { cursor: pointer; padding: 0; margin-right: .7rem; font-size: inherit; border: 0; background: none; color: #60a5fa; font-weight: 700; }
+    #sessions td button { padding: .2rem .5rem; font-size: .72rem; border: 1px solid #7f1d1d; background: #7f1d1d; color: #fff; border-radius: 8px; cursor: pointer; }
+    .dock { margin: 0 0 1rem; background: #19212c; border: 1px solid #293342; border-radius: 12px; overflow: hidden; }
+    .dock-head { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: .6rem 1rem; border-bottom: 1px solid #293342; font-size: .9rem; color: #aebbd0; }
+    .dock-head .dk-go { background: #166534; border-color: #166534; } .dock-head .dk-stop { background: #b91c1c; border-color: #b91c1c; }
+    .dock-head button:disabled { opacity: .45; cursor: default; }
+    .dock-head .dock-hint { color: #6b7a90; font-size: .72rem; flex: 1; min-width: 12rem; }
+    .dock-head button { padding: .35rem .8rem; border-radius: 999px; border: 1px solid #344054; background: #111821; color: #e8edf4; font: 700 .75rem/1 system-ui, sans-serif; cursor: pointer; }
+    .dock-body { display: grid; grid-template-columns: minmax(220px, 330px) minmax(0, 1fr); gap: 1rem; padding: .8rem 1rem; align-items: center; }
+    .dock.collapsed .dock-body { display: none; }
+    .enc-tools { padding: 0 1rem 1rem; display: grid; gap: .6rem; }
+    .enc-tools h3 { margin: 0; font-size: .85rem; color: #aebbd0; }
+    .enc-tools .mini { padding: .5rem .9rem; border: 2px solid #344054; border-radius: 10px; background: #0b0f15; color: #e8edf4; font: 700 .8rem/1 ui-monospace, monospace; cursor: pointer; }
+    .dock-right { display: grid; gap: .7rem; min-width: 0; }
+    .mtable { width: 100%; border-collapse: collapse; font: 600 .78rem/1.3 ui-monospace, monospace; }
+    .mtable th { text-align: left; color: #6b7a90; font-weight: 700; padding: .3rem .5rem; border-bottom: 1px solid #293342; text-transform: uppercase; font-size: .66rem; letter-spacing: .06em; }
+    .mtable td { padding: .3rem .5rem; border-bottom: 1px solid #1f2937; white-space: nowrap; }
+    .mtable td:first-child { font-weight: 800; color: #e8edf4; }
+    .mtable tr.run td { color: #4ade80; } .mtable tr.fault td { color: #f87171; }
+    .mnote { margin: 0; color: #6b7a90; font-size: .72rem; }
+    @media (max-width: 760px) { .mtable { display: block; overflow-x: auto; } }
+    .dock-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .dock-stats .value { font-size: 1rem; }
+    @media (max-width: 760px) { .dock-body { grid-template-columns: 1fr; } }
     @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .video { min-height: 180px; } .log-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <header>
     <h1>AGV MONITOR <span id="running-dot" class="dot" title="AGV control loop"></span></h1>
-    <div class="power">
-      <span id="power-state" class="state off">MOTORS OFF</span>
-      <button id="power-btn" class="off" type="button" disabled>START</button>
-      <span id="connection" class="pill">Connecting…</span>
+    <div class="hdr-right">
+      <div class="auth" id="auth-box" title="Sign-in session (kept after page reloads)">
+        <span class="who" id="auth-who">Signed out</span>
+        <button id="auth-btn" type="button">Sign in</button>
+      </div>
+      <div class="power">
+        <span id="power-state" class="state off">MOTORS OFF</span>
+        <button id="power-btn" class="off" type="button" disabled>START</button>
+        <span id="connection" class="pill">Connecting…</span>
+      </div>
     </div>
   </header>
+  <div class="strip" id="strip" aria-label="Summary">
+    <div class="chip" id="sum-mode"><span class="k">Mode</span><span class="v">—</span></div>
+    <div class="chip" id="sum-motors"><span class="k">Motors</span><span class="v">—</span></div>
+    <div class="chip" id="sum-line"><span class="k">Line</span><span class="v">—</span></div>
+    <div class="chip" id="sum-wheels"><span class="k">Wheels L · R</span><span class="v">—</span></div>
+    <div class="chip" id="sum-ctrl"><span class="k">Wheel control</span><span class="v">—</span></div>
+    <div class="chip" id="sum-arduino"><span class="k">Arduino</span><span class="v">—</span></div>
+    <div class="chip" id="sum-obst"><span class="k">Obstacle</span><span class="v">—</span></div>
+    <div class="chip" id="sum-cam"><span class="k">Camera</span><span class="v">—</span></div>
+    <div class="chip" id="sum-rec"><span class="k">Recording</span><span class="v"><button type="button" id="rec-quick" class="mini" style="padding:.2rem .6rem;font-size:.75rem">● Record</button> <button type="button" id="rec-quick-mark" class="mini go" style="padding:.2rem .6rem;font-size:.75rem" hidden>⚑ Mark</button></span></div>
+  </div>
+  <dialog id="login-dlg">
+    <form id="login-form" method="dialog" autocomplete="off">
+      <h3>Sign in</h3>
+      <p id="login-why">Enter the dashboard password. The session is kept after page reloads.</p>
+      <input id="login-pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="err" id="login-err"></div>
+      <div class="row"><button type="button" class="cancel" id="login-cancel">Cancel</button><button type="submit" class="ok">Sign in</button></div>
+    </form>
+  </dialog>
+  <div id="toasts" aria-live="polite"></div>
   <main>
-    <div class="grid">
-      <section class="card">
+    <section class="dock" id="dock" aria-label="Chassis monitor">
+      <div class="dock-head">
+        <strong>Chassis monitor</strong>
+        <span id="dock-chip" class="pill">—</span>
+        <span class="dock-hint">press and hold a wheel pair to spin that side</span>
+        <button type="button" class="dk-go" id="dk-enable">Enable manual access</button>
+        <button type="button" class="dk-stop" id="dk-stop">STOP</button>
+        <button type="button" id="dock-toggle" aria-expanded="true">Hide</button>
+      </div>
+      <div class="dock-body" id="dock-body">
+        <svg id="chassis-svg" viewBox="0 0 440 330" role="img" aria-label="Top view of the rover with live wheel speeds">
+            <defs>
+              <clipPath id="clipFL"><rect x="62" y="58" width="34" height="84" rx="6"/></clipPath>
+              <clipPath id="clipRL"><rect x="62" y="188" width="34" height="84" rx="6"/></clipPath>
+              <clipPath id="clipFR"><rect x="344" y="58" width="34" height="84" rx="6"/></clipPath>
+              <clipPath id="clipRR"><rect x="344" y="188" width="34" height="84" rx="6"/></clipPath>
+            </defs>
+            <!-- body -->
+            <rect x="110" y="40" width="220" height="250" rx="16" class="ch-body"/>
+            <path d="M220 30 l-14 18 h28 z" class="ch-front"/>
+            <text x="220" y="66" class="ch-tiny" text-anchor="middle">FRONT</text>
+            <rect x="196" y="82" width="48" height="20" rx="5" class="ch-cam"/>
+            <text x="220" y="97" class="ch-tiny" text-anchor="middle">IMX219</text>
+            <rect x="176" y="150" width="88" height="30" rx="6" class="ch-board"/>
+            <text x="220" y="169" class="ch-tiny" text-anchor="middle" style="fill:#bbf7d0">Jetson · Arduino</text>
+            <text x="118" y="125" class="ch-tiny">DRV L · D10/D8</text>
+            <text x="322" y="125" class="ch-tiny" text-anchor="end">DRV R · D9/D7</text>
+            <!-- axle lines -->
+            <line x1="96" y1="100" x2="110" y2="100" class="ch-axle"/><line x1="96" y1="230" x2="110" y2="230" class="ch-axle"/>
+            <line x1="330" y1="100" x2="344" y2="100" class="ch-axle"/><line x1="330" y1="230" x2="344" y2="230" class="ch-axle"/>
+            <!-- left side wheels -->
+            <g id="side-l" class="ch-side" data-side="l" tabindex="0">
+              <rect x="62" y="58" width="34" height="84" rx="6" class="ch-wheel"/>
+              <g clip-path="url(#clipFL)"><g id="tread-FL"></g></g>
+              <rect x="62" y="188" width="34" height="84" rx="6" class="ch-wheel"/>
+              <g clip-path="url(#clipRL)"><g id="tread-RL"></g></g>
+              <rect x="62" y="58" width="34" height="84" rx="6" class="ch-wheel-edge" id="edge-l"/>
+              <rect x="62" y="188" width="34" height="84" rx="6" class="ch-wheel-edge" id="edge-l2"/>
+              <text x="79" y="52" class="ch-tiny" text-anchor="middle">FL</text>
+              <text x="79" y="286" class="ch-tiny" text-anchor="middle">RL</text>
+            </g>
+            <!-- right side wheels -->
+            <g id="side-r" class="ch-side" data-side="r" tabindex="0">
+              <rect x="344" y="58" width="34" height="84" rx="6" class="ch-wheel"/>
+              <g clip-path="url(#clipFR)"><g id="tread-FR"></g></g>
+              <rect x="344" y="188" width="34" height="84" rx="6" class="ch-wheel"/>
+              <g clip-path="url(#clipRR)"><g id="tread-RR"></g></g>
+              <rect x="344" y="58" width="34" height="84" rx="6" class="ch-wheel-edge" id="edge-r"/>
+              <rect x="344" y="188" width="34" height="84" rx="6" class="ch-wheel-edge" id="edge-r2"/>
+              <text x="361" y="52" class="ch-tiny" text-anchor="middle">FR</text>
+              <text x="361" y="286" class="ch-tiny" text-anchor="middle">RR</text>
+            </g>
+            <!-- encoder badges (one per side) -->
+            <g id="encbadge-l"><rect x="96" y="124" width="26" height="14" rx="4" class="ch-enc"/><text x="109" y="134.5" class="ch-tiny" text-anchor="middle" style="fill:#fff">ENC</text></g>
+            <g id="encbadge-r"><rect x="318" y="124" width="26" height="14" rx="4" class="ch-enc"/><text x="331" y="134.5" class="ch-tiny" text-anchor="middle" style="fill:#fff">ENC</text></g>
+            <!-- speed arrows: solid = measured, dashed = target -->
+            <g id="arrow-l"><line id="arr-l-t" x1="30" y1="165" x2="30" y2="165" class="ch-arrow-t"/><line id="arr-l-m" x1="40" y1="165" x2="40" y2="165" class="ch-arrow-m"/></g>
+            <g id="arrow-r"><line id="arr-r-t" x1="410" y1="165" x2="410" y2="165" class="ch-arrow-t"/><line id="arr-r-m" x1="400" y1="165" x2="400" y2="165" class="ch-arrow-m"/></g>
+            <!-- readouts -->
+            <!-- per-motor live stats (front + rear motor of a side share one driver + encoder) -->
+            <g class="ch-mot" id="mot-FL"><text id="mt-FL-1" x="116" y="64" class="ch-m1">—</text><text id="mt-FL-2" x="116" y="75" class="ch-m2">—</text><text id="mt-FL-3" x="116" y="86" class="ch-m2">—</text></g>
+            <g class="ch-mot" id="mot-RL"><text id="mt-RL-1" x="116" y="204" class="ch-m1">—</text><text id="mt-RL-2" x="116" y="215" class="ch-m2">—</text><text id="mt-RL-3" x="116" y="226" class="ch-m2">—</text></g>
+            <g class="ch-mot" id="mot-FR"><text id="mt-FR-1" x="324" y="64" class="ch-m1" text-anchor="end">—</text><text id="mt-FR-2" x="324" y="75" class="ch-m2" text-anchor="end">—</text><text id="mt-FR-3" x="324" y="86" class="ch-m2" text-anchor="end">—</text></g>
+            <g class="ch-mot" id="mot-RR"><text id="mt-RR-1" x="324" y="204" class="ch-m1" text-anchor="end">—</text><text id="mt-RR-2" x="324" y="215" class="ch-m2" text-anchor="end">—</text><text id="mt-RR-3" x="324" y="226" class="ch-m2" text-anchor="end">—</text></g>
+            <text x="8" y="14" class="ch-head">LEFT</text>
+            <text id="rd-l-1" x="8" y="310" class="ch-read">—</text>
+            <text id="rd-l-2" x="8" y="324" class="ch-read2">—</text>
+            <text x="432" y="14" class="ch-head" text-anchor="end">RIGHT</text>
+            <text id="rd-r-1" x="432" y="310" class="ch-read" text-anchor="end">—</text>
+            <text id="rd-r-2" x="432" y="324" class="ch-read2" text-anchor="end">—</text>
+          </svg>
+        <div class="dock-right">
+        <div class="dock-stats">
+          <div class="stat"><span class="label">Left · target / measured</span><span id="dk-l" class="value mono">—</span></div>
+          <div class="stat"><span class="label">Right · target / measured</span><span id="dk-r" class="value mono">—</span></div>
+          <div class="stat"><span class="label">PWM applied L · R</span><span id="dk-pwm" class="value mono">—</span></div>
+          <div class="stat"><span class="label">Encoders</span><span id="dk-enc" class="value mono">—</span></div>
+        </div>
+        <table class="mtable" id="mtable">
+          <thead><tr><th>Motor</th><th>Driver</th><th>Target</th><th>Measured</th><th>RPM</th><th>PWM</th><th>Dir</th><th>Encoder</th></tr></thead>
+          <tbody>
+            <tr id="mr-FL"><td>FL</td><td>L · D10/D8</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr id="mr-RL"><td>RL</td><td>L · D10/D8</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr id="mr-FR"><td>FR</td><td>R · D9/D7</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr id="mr-RR"><td>RR</td><td>R · D9/D7</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          </tbody>
+        </table>
+        <p class="mnote">Front and rear motor of a side share one driver channel and one encoder, so both show that side's values. Speed and rpm come from the encoder; PWM is what the Arduino applies.</p>
+        </div>
+      </div>
+    </section>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Dashboard sections">
+      <button type="button" role="tab" data-tab="drive" id="tabbtn-drive" aria-controls="tab-drive" aria-selected="true">Drive</button>
+      <button type="button" role="tab" data-tab="chassis" id="tabbtn-chassis" aria-controls="tab-chassis" aria-selected="false">Chassis &amp; encoders<i class="tabdot" id="dot-chassis"></i></button>
+      <button type="button" role="tab" data-tab="test" id="tabbtn-test" aria-controls="tab-test" aria-selected="false">Motor test</button>
+      <button type="button" role="tab" data-tab="record" id="tabbtn-record" aria-controls="tab-record" aria-selected="false">Record<i class="tabdot rec" id="dot-record"></i></button>
+      <button type="button" role="tab" data-tab="logs" id="tabbtn-logs" aria-controls="tab-logs" aria-selected="false">Logs &amp; system<i class="tabdot" id="dot-logs"></i></button>
+    </nav>
+    <div class="tabpanel grid" id="tab-drive" role="tabpanel" aria-labelledby="tabbtn-drive">
+      <div class="stack">
+      <section class="card nocollapse">
         <h2>Annotated camera <span id="backend-label" class="backend"></span></h2>
         <img class="video" src="{{ url_for('video_feed') }}" alt="Live annotated camera stream">
       </section>
+      <section class="card">
+        <h2>Max speed · master limit</h2>
+        <div class="speed">
+          <div class="speed-row">
+            <input id="speed-range" type="range" min="{{ project_config.SPEED_MIN_PCT }}" max="{{ project_config.SPEED_MAX_PCT }}" step="5" value="{{ project_config.DEFAULT_SPEED_PCT }}" aria-label="Max speed percent">
+            <span id="speed-val" class="big">—</span>
+          </div>
+          <span class="applied" id="speed-applied">applied: —</span>
+          <label class="applied" style="display:flex;gap:.6rem;align-items:center;cursor:pointer"><input type="checkbox" id="obst-toggle" checked> <span id="obst-label">Obstacle stop enforced (camera)</span></label>
+          <p class="note">Every other speed (line following, curves, caution, obstacle slow-down, turning, search) is scaled by this value. Changes ramp in smoothly and take effect immediately, also while driving.</p>
+        </div>
+      </section>
+      </div>
+      <div class="stack">
       <section class="card">
         <h2>Vehicle state</h2>
         <!-- Big human-readable guidance chip. Updates from the same
@@ -150,18 +420,6 @@
         <p class="hint">The motors only run while the switch above is ON. The Arduino link is alive only while its <code>ACK2</code> replies keep arriving (dead after <code>{{ project_config.ARDUINO_ACK_TIMEOUT_MS }}</code> ms).</p>
       </section>
       <section class="card">
-        <h2>Max speed · master limit</h2>
-        <div class="speed">
-          <div class="speed-row">
-            <input id="speed-range" type="range" min="{{ project_config.SPEED_MIN_PCT }}" max="{{ project_config.SPEED_MAX_PCT }}" step="5" value="{{ project_config.DEFAULT_SPEED_PCT }}" aria-label="Max speed percent">
-            <span id="speed-val" class="big">—</span>
-          </div>
-          <span class="applied" id="speed-applied">applied: —</span>
-          <label class="applied" style="display:flex;gap:.6rem;align-items:center;cursor:pointer"><input type="checkbox" id="obst-toggle" checked> <span id="obst-label">Obstacle stop enforced (camera)</span></label>
-          <p class="note">Every other speed (line following, curves, caution, obstacle slow-down, turning, search) is scaled by this value. Changes ramp in smoothly and take effect immediately, also while driving.</p>
-        </div>
-      </section>
-      <section class="card">
         <h2>Manual control · test by hand</h2>
         <div class="manual">
           <div class="seg" role="group" aria-label="Drive mode">
@@ -183,18 +441,163 @@
           <p class="note">1) choose MANUAL (password), 2) press START motors (password), 3) hold a button or W A S D / arrow keys to drive. To go back to automatic line following: press AUTO (this stops the motors), then START. Release and it stops within half a second. Speed follows the Max speed slider and ramps smoothly. Camera obstacle detection is <b>not</b> enforced in manual mode: you are the safety.</p>
         </div>
       </section>
+      </div>
+    </div>
+    <div class="tabpanel grid single" id="tab-chassis" role="tabpanel" aria-labelledby="tabbtn-chassis" hidden>
+      <section class="card" id="chassis-card">
+        <h2>Chassis · wheel speed &amp; encoder PID <span id="loop-chip" class="pill" style="margin-left:.5rem">—</span></h2>
+        <div class="chassis">
+          <div class="ch-side-panel">
+            <div class="ch-stats">
+              <div class="stat"><span class="label">Left · target / measured</span><span id="cs-l" class="value mono">—</span></div>
+              <div class="stat"><span class="label">Right · target / measured</span><span id="cs-r" class="value mono">—</span></div>
+              <div class="stat"><span class="label">Left · error</span><span id="ce-l" class="value mono">—</span></div>
+              <div class="stat"><span class="label">Right · error</span><span id="ce-r" class="value mono">—</span></div>
+              <div class="stat"><span class="label">Peak seen L · R</span><span id="cpk" class="value mono">—</span></div>
+              <div class="stat"><span class="label">PWM applied L · R</span><span id="cpwm" class="value mono">—</span></div>
+            </div>
+            <label class="applied" style="display:flex;gap:.6rem;align-items:center;cursor:pointer">
+              <input type="checkbox" id="loop-toggle" checked> <span id="loop-label">Closed loop: encoder PID holds wheel speed</span>
+            </label>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas class="speed-chart" width="900" height="220" aria-label="Wheel speed target versus measured, last 12 seconds"></canvas>
+          <div class="legend"><span><i style="border-color:#60a5fa"></i>Left measured</span><span><i class="dash" style="border-color:#60a5fa"></i>Left target</span><span><i style="border-color:#fb923c"></i>Right measured</span><span><i class="dash" style="border-color:#fb923c"></i>Right target</span></div>
+        </div>
+        <div class="manual">
+          <div class="rowline">
+            <label for="test-pct" class="label" style="margin:0">Test power</label>
+            <input id="test-pct" type="range" min="10" max="100" step="5" value="40" style="flex:1;accent-color:#60a5fa">
+            <span id="test-pct-val" class="mono">40%</span>
+          </div>
+          <div class="testbtns" id="testbtns">
+            <button type="button" data-l="1" data-r="0">Left side</button>
+            <button type="button" data-l="0" data-r="1">Right side</button>
+            <button type="button" data-l="1" data-r="1">Both ▲</button>
+            <button type="button" data-l="-1" data-r="-1">Both ▼</button>
+            <button type="button" data-l="-1" data-r="1">Pivot ⟲</button>
+            <button type="button" data-l="1" data-r="-1">Pivot ⟳</button>
+            <button type="button" id="step-test" class="steptest">Step test 3 s</button>
+          </div>
+          <div id="step-result" class="live">step test: —</div>
+          <p class="note">Hold a button (or press and hold a wheel pair in the drawing) to run exactly that side. Needs MANUAL mode and START. Test power is a share of the Max speed slider. <b>Step test</b> drives both sides for 3 s and reports rise time and steady-state error. Untick the closed-loop box to compare with raw PWM. Wheels turn in the drawing at the measured speed; without encoder data the drawing shows the commanded speed.</p>
+        </div>
+      </section>
       <section class="card">
         <h2>Arduino · motor link</h2>
         <div class="stats">
           <div class="stat"><span class="label">Firmware protocol</span><span id="fw-version" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
           <div class="stat"><span class="label">ACK age</span><span id="ack-age" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
-          <div class="stat"><span class="label">Encoder L (raw)</span><span id="enc-left" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
-          <div class="stat"><span class="label">Encoder R (raw)</span><span id="enc-right" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
-          <div class="stat"><span class="label">Encoder Δ L (since boot)</span><span id="enc-delta-left" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
-          <div class="stat"><span class="label">Encoder Δ R (since boot)</span><span id="enc-delta-right" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder L (ticks)</span><span id="enc-left" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
+          <div class="stat"><span class="label">Encoder R (ticks)</span><span id="enc-right" class="value" style="font-family: ui-monospace, monospace;">—</span></div>
         </div>
-        <p class="hint">Deltas reset to 0 on the V&lt;n&gt; boot line. Raw encoders are 16-bit and wrap every 65 536 ticks; deltas are wrap-safe signed int16.</p>
+        <div class="enc-tools">
+          <h3>Encoder check &amp; calibration</h3>
+          <div class="stats" style="padding:0">
+            <div class="stat"><span class="label">Since zero · L ticks / R ticks</span><span id="et-ticks" class="value mono">—</span></div>
+            <div class="stat"><span class="label">Distance since zero (L · R)</span><span id="et-dist" class="value mono">—</span></div>
+          </div>
+          <div class="rowline" style="flex-wrap:wrap">
+            <button type="button" class="mini" id="et-zero">Zero counts</button>
+            <label class="label" style="margin:0" for="et-rolled">I rolled the rover</label>
+            <input id="et-rolled" type="number" min="0.05" step="0.05" value="1.00" style="width:5.5rem;background:#0b0f15;color:#e8edf4;border:2px solid #344054;border-radius:10px;padding:.4rem">
+            <span class="mono">m</span>
+          </div>
+          <div id="et-result" class="live">calibration: press Zero, roll the rover a known distance by hand (motors OFF), enter it above</div>
+        </div>
+        <p class="hint">Ticks are signed edge counts of encoder channel A (2 per pulse) since the Arduino booted; forward counts up. Firmware v3 reports them with every ACK.</p>
       </section>
+    </div>
+    <div class="tabpanel grid single" id="tab-test" role="tabpanel" aria-labelledby="tabbtn-test" hidden>
+      <section class="card" id="dtest-card">
+        <h2>Motor driver test · each side on its own</h2>
+        <div class="chart-wrap">
+          <canvas class="speed-chart" width="900" height="220" aria-label="Wheel speed target versus measured, last 12 seconds"></canvas>
+          <div class="legend"><span><i style="border-color:#60a5fa"></i>Left measured</span><span><i class="dash" style="border-color:#60a5fa"></i>Left target</span><span><i style="border-color:#fb923c"></i>Right measured</span><span><i class="dash" style="border-color:#fb923c"></i>Right target</span></div>
+        </div>
+        <div class="dtest" id="dtest">
+          <div class="rowline" style="flex-wrap:wrap">
+            <button type="button" class="startbtn" id="dt-enable">Enable motor test (sign in)</button>
+            <button type="button" class="stopbtn" id="dt-stop">STOP motors</button>
+            <span class="note" style="margin:0;flex:1;min-width:14rem">No camera or line following is needed: this only drives the Arduino. Run <code>./agv_motortest.sh</code> to test without the full project.</span>
+          </div>
+          <div class="rowline" style="flex-wrap:wrap">
+            <span class="seg" id="dt-mode" role="group" aria-label="Test mode">
+              <button type="button" data-m="speed" class="active">Speed (encoder PID)</button>
+              <button type="button" data-m="raw">Raw PWM (driver direct)</button>
+            </span>
+            <label class="applied" style="display:flex;gap:.4rem;align-items:center;cursor:pointer"><input type="checkbox" id="dt-link"> link L = R</label>
+            <span id="dt-state" class="live">test: off</span>
+          </div>
+          <div class="dt-cols">
+            <div class="dt-col" id="dt-col-l">
+              <span class="label">Left driver · PWM D10 · DIR D8</span>
+              <div class="dt-val" id="dt-val-l">0</div>
+              <div class="dt-sub" id="dt-sub-l">—</div>
+              <input type="range" id="dt-l" min="-100" max="100" step="1" value="0" aria-label="Left side test value">
+              <div class="dt-btns" data-side="l"><button type="button" data-d="-10">−10</button><button type="button" data-d="-1">−1</button><button type="button" data-d="0">0</button><button type="button" data-d="1">+1</button><button type="button" data-d="10">+10</button></div>
+            </div>
+            <div class="dt-col" id="dt-col-r">
+              <span class="label">Right driver · PWM D9 · DIR D7</span>
+              <div class="dt-val" id="dt-val-r">0</div>
+              <div class="dt-sub" id="dt-sub-r">—</div>
+              <input type="range" id="dt-r" min="-100" max="100" step="1" value="0" aria-label="Right side test value">
+              <div class="dt-btns" data-side="r"><button type="button" data-d="-10">−10</button><button type="button" data-d="-1">−1</button><button type="button" data-d="0">0</button><button type="button" data-d="1">+1</button><button type="button" data-d="10">+10</button></div>
+            </div>
+          </div>
+          <div class="rowline" style="flex-wrap:wrap">
+            <label class="label" style="margin:0" for="dt-ramp-sides">Ramp</label>
+            <select id="dt-ramp-sides" style="background:#0b0f15;color:#e8edf4;border:2px solid #344054;border-radius:10px;padding:.45rem">
+              <option value="b">both sides</option><option value="l">left only</option><option value="r">right only</option>
+            </select>
+            <button type="button" class="mini go" id="dt-ramp">Ramp 0 → 100 → 0 %</button>
+            <button type="button" class="mini reset" id="dt-reset">RESET to zero + normal</button>
+          </div>
+          <p class="note">Speed mode: the value is a share of the Max speed slider and the encoder PID holds it. Raw PWM mode: 100 % = PWM 255 and the card shows the actual PWM number (direction from the sign), without PID or speed cap; it is still ramped by the jerk limiter and the Arduino slew limit. The test only runs in MANUAL with the motors ON, and the browser must stay open: closing the tab or losing Wi-Fi stops it within half a second. <b>Everything resets automatically</b> when you press AUTO or STOP (values to 0, closed loop back ON), so the real line-following run never starts from a test setting.</p>
+        </div>
+      </section>
+    </div>
+    <div class="tabpanel grid single" id="tab-record" role="tabpanel" aria-labelledby="tabbtn-record" hidden>
+      <section class="card" id="record-card">
+        <h2>Record test data · frames + detection log <span id="rec-chip" class="pill" style="margin-left:.5rem">not recording</span></h2>
+        <div class="manual">
+          <div class="rowline" style="flex-wrap:wrap">
+            <button type="button" class="startbtn" id="rec-start">● Start recording</button>
+            <button type="button" class="stopbtn" id="rec-stop" disabled>■ Stop</button>
+            <label class="label" style="margin:0" for="rec-mode">Mode</label>
+            <select id="rec-mode" style="background:#0b0f15;color:#e8edf4;border:2px solid #344054;border-radius:10px;padding:.45rem">
+              <option value="continuous" selected>Continuous at N fps</option><option value="triggered">Triggered + baseline (saves lead-up to problems)</option>
+            </select>
+            <label class="label" style="margin:0" for="rec-rate">Frames per second</label>
+            <select id="rec-rate" style="background:#0b0f15;color:#e8edf4;border:2px solid #344054;border-radius:10px;padding:.45rem">
+              <option value="1">1</option><option value="2">2</option><option value="5" selected>5</option><option value="10">10</option><option value="30">30 (every frame)</option>
+            </select>
+            <label class="applied" style="display:flex;gap:.4rem;align-items:center;cursor:pointer"><input type="checkbox" id="rec-views"> detector views for every frame</label>
+          </div>
+          <div class="rowline" style="flex-wrap:wrap">
+            <input id="rec-note" type="text" maxlength="120" placeholder="what was wrong? (optional note)" style="flex:1;min-width:14rem;background:#0b0f15;color:#e8edf4;border:2px solid #344054;border-radius:10px;padding:.6rem .8rem">
+            <button type="button" class="mini go" id="rec-mark" disabled>⚑ Mark wrong detection (M)</button>
+          </div>
+          <div class="ch-stats" style="grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))">
+            <div class="stat"><span class="label">Session</span><span id="rec-session" class="value mono" style="font-size:.95rem">—</span></div>
+            <div class="stat"><span class="label">Frames saved</span><span id="rec-frames" class="value mono">—</span></div>
+            <div class="stat"><span class="label">Problems · marks</span><span id="rec-flags" class="value mono">—</span></div>
+            <div class="stat"><span class="label">Size · time</span><span id="rec-size" class="value mono" style="font-size:.95rem">—</span></div>
+            <div class="stat"><span class="label">Free disk</span><span id="rec-free" class="value mono">—</span></div>
+          </div>
+          <div id="rec-warn" class="live"></div>
+          <p class="note"><b>Triggered</b> keeps the last ~8 s before a problem (line lost, STUCK / OFF_LINE, obstacle or your mark) plus ~3 s after it, plus a slow baseline of ordinary frames, so you see what led up to the fault without filling the disk. <b>Continuous</b> saves every Nth frame at the chosen rate, as before. Saves the raw camera frames and a log row per frame (line offset / angle / lookahead / curvature, obstacle state, the decision, speeds, wheel PWM and encoder speeds, and where the line was drawn). Frames where the line is lost, tracking is STUCK / OFF_LINE or an obstacle is flagged are <b>always</b> saved, together with the detector's own views, so you can see what it got wrong. Press <b>Mark wrong detection</b> (or the M key) on any frame you disagree with. It works with the motors off, so you can also roll the rover by hand over the tape. Limits: 3 GB, 60 min or 3 GB free disk per session; the files are in <code>recordings/</code>.</p>
+        </div>
+      </section>
+      <section class="card" id="sessions-card">
+        <h2>Saved recordings <button type="button" class="mini" id="rec-refresh" style="margin-left:auto">Refresh</button></h2>
+        <div style="padding:.4rem 1rem 1rem;overflow-x:auto">
+          <table class="mtable" id="sessions"><thead><tr><th>Session</th><th>Mode</th><th>Frames</th><th>Problems</th><th>Marks</th><th>Size</th><th>Length</th><th></th></tr></thead><tbody id="sessions-body"><tr><td colspan="8" class="muted">loading…</td></tr></tbody></table>
+        </div>
+      </section>
+    </div>
+    <div class="tabpanel grid" id="tab-logs" role="tabpanel" aria-labelledby="tabbtn-logs" hidden>
       <section class="card">
         <h2>Sensor probes · startup wiring check</h2>
         <table id="probes" style="width:100%; border-collapse: collapse; padding: .75rem 1rem; font-size: .85rem;">
@@ -242,6 +645,141 @@
   <script>
     let lastLogId = 0;
     const $ = (id) => document.getElementById(id);
+
+    // ── Sign-in session: access + refresh tokens kept across page reloads ──
+    // Tokens live in localStorage with their ABSOLUTE expiry times, so a reload
+    // neither signs you out nor resets the clock. The access token is short
+    // lived and refreshed in the background; the refresh token has a fixed
+    // lifetime on the server and is not extended by use.
+    // KEEP IN SYNC with templates/_auth_core.js (review.html uses that copy).
+    const AUTH_KEY = 'agv-auth';
+    function toast(msg, kind = 'info', ms = 4200) {
+      const box = $('toasts');
+      if ([...box.children].some(t => t.textContent === msg)) return;   // no duplicates
+      const t = document.createElement('div');
+      t.className = 'toast ' + kind; t.textContent = msg;
+      box.appendChild(t);
+      setTimeout(() => t.remove(), ms);
+    }
+    const Auth = {
+      data: null,                                   // {access, refresh, accessExp, refreshExp} (ms epoch)
+      load() {
+        try { const d = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); this.data = d && d.refresh ? d : null; }
+        catch (e) { this.data = null; }
+        if (this.data && Date.now() >= this.data.refreshExp) this.data = null;
+      },
+      save() {
+        try { this.data ? localStorage.setItem(AUTH_KEY, JSON.stringify(this.data)) : localStorage.removeItem(AUTH_KEY); }
+        catch (e) { /* private mode: session lives until reload */ }
+      },
+      clear() { this.data = null; this.save(); updateAuthUi(); },
+      accessValid(margin = 0) { return !!this.data && Date.now() < this.data.accessExp - margin; },
+      refreshValid() { return !!this.data && Date.now() < this.data.refreshExp; },
+      headers() { return this.accessValid() ? { Authorization: 'Bearer ' + this.data.access } : {}; },
+      async refresh() {
+        if (!this.refreshValid()) { this.clear(); return false; }
+        try {
+          const r = await fetch('/api/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: this.data.refresh }) });
+          if (r.status === 401) { this.clear(); toast('Session ended - sign in again', 'warn'); return false; }
+          if (!r.ok) return this.accessValid();           // server hiccup: keep what we have
+          const j = await r.json(), now = Date.now();
+          this.data.access = j.access_token;
+          this.data.accessExp = now + j.access_expires_in * 1000;
+          // refreshExp stays as issued at sign-in: using the token never extends it
+          this.save(); updateAuthUi();
+          return true;
+        } catch (e) { return this.accessValid(); }
+      },
+      async ensure() {
+        if (this.accessValid(20000)) return true;
+        if (this.refreshValid()) return (await this.refresh()) && this.accessValid();
+        return false;
+      },
+      async login(password) {
+        const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) return { ok: false, status: r.status, error: j.error || 'sign-in failed' };
+        const now = Date.now();
+        this.data = { access: j.access_token, refresh: j.refresh_token,
+                      accessExp: now + j.access_expires_in * 1000, refreshExp: now + j.refresh_expires_in * 1000 };
+        this.save(); updateAuthUi();
+        return { ok: true };
+      },
+      async logout() {
+        const rt = this.data && this.data.refresh;
+        this.clear();
+        try { await fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                           body: JSON.stringify({ refresh_token: rt }) }); } catch (e) {}
+      },
+    };
+    Auth.load();
+    // POST JSON with the bearer token; on 401 refresh once and retry.
+    async function authFetch(url, body, method = 'POST') {
+      const go = () => fetch(url, { method, headers: { 'Content-Type': 'application/json', ...Auth.headers() },
+                                    body: body === undefined ? undefined : JSON.stringify(body) });
+      if (!Auth.accessValid(5000) && Auth.refreshValid()) await Auth.refresh();
+      let r = await go();
+      if (r.status === 401 && Auth.refreshValid() && await Auth.refresh()) r = await go();
+      if (r.status === 401 && Auth.data) { Auth.clear(); toast('Session expired - sign in again', 'warn'); }
+      if (r.status === 429) toast('Too many wrong passwords - wait 30 seconds', 'err');
+      return r;
+    }
+    function fmtDur(ms) {
+      const s = Math.max(0, Math.round(ms / 1000));
+      return s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`
+           : s >= 60 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s` : `${s}s`;
+    }
+    function updateAuthUi() {
+      const box = $('auth-box'), who = $('auth-who'), b = $('auth-btn');
+      if (Auth.refreshValid()) {
+        const left = Auth.data.refreshExp - Date.now();
+        who.textContent = `Signed in · ${fmtDur(left)} left`;
+        box.className = 'auth ' + (left < 600000 ? 'warn' : 'in');
+        b.textContent = 'Sign out';
+      } else {
+        who.textContent = 'Signed out'; box.className = 'auth'; b.textContent = 'Sign in';
+      }
+    }
+    let loginResolve = null;
+    function openLogin(why) {
+      return new Promise((resolve) => {
+        loginResolve = resolve;
+        $('login-why').textContent = why || 'Enter the dashboard password. The session is kept after page reloads.';
+        $('login-err').textContent = ''; $('login-pw').value = '';
+        const dlg = $('login-dlg');
+        if (!dlg.open) dlg.showModal();
+        setTimeout(() => $('login-pw').focus(), 30);
+      });
+    }
+    function closeLogin(result) {
+      const dlg = $('login-dlg'); if (dlg.open) dlg.close();
+      if (loginResolve) { loginResolve(result); loginResolve = null; }
+    }
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await Auth.login($('login-pw').value);
+      if (res.ok) { closeLogin(true); toast('Signed in', 'ok', 2000); return; }
+      $('login-err').textContent = res.error; $('login-pw').select();
+    });
+    $('login-cancel').addEventListener('click', () => closeLogin(false));
+    $('login-dlg').addEventListener('cancel', () => closeLogin(false));
+    // Resolves true when a valid session exists (prompting for the password if needed).
+    async function requireAuth(why) {
+      if (await Auth.ensure()) return true;
+      return openLogin(why);
+    }
+    $('auth-btn').addEventListener('click', async () => {
+      if (Auth.refreshValid()) { await Auth.logout(); toast('Signed out', 'info', 2000); }
+      else openLogin();
+    });
+    window.addEventListener('storage', (e) => { if (e.key === AUTH_KEY) { Auth.load(); updateAuthUi(); } });
+    // keep the access token fresh, and the "time left" label ticking
+    setInterval(() => { if (Auth.refreshValid() && !Auth.accessValid(60000)) Auth.refresh(); }, 15000);
+    setInterval(updateAuthUi, 1000);
+    updateAuthUi();
+    if (Auth.refreshValid() && !Auth.accessValid(30000)) Auth.refresh();   // reload after the access token lapsed
     const LOG_PANELS = {
       SYSTEM: { list: 'log-system', count: 'count-system' },
       CAMERA: { list: 'log-camera', count: 'count-camera' },
@@ -328,6 +866,10 @@
       updatePower(data.enabled, fresh);
       updateSpeed(data.max_speed_pct);
       updateTrack(data.track_state, data.steer_boost || 1);
+      updateWheels(data);
+      updateStrip(data, fresh);
+      updateTabDots(data);
+      updateRecord(data);
       updateObstacleSwitch(data.obstacle_enforced);
       driveMode = data.mode === 'manual' ? 'manual' : 'auto';
       updateManualUi();
@@ -370,9 +912,6 @@
       setText('ack-age', data.stm32_ack_age_ms != null ? `${Math.round(data.stm32_ack_age_ms)} ms` : '—');
       setText('enc-left', data.stm32_encoder_left ?? '—');
       setText('enc-right', data.stm32_encoder_right ?? '—');
-      const fmtDelta = (v) => v == null ? '—' : (v >= 0 ? `+${v}` : `${v}`);
-      setText('enc-delta-left', fmtDelta(data.stm32_encoder_delta_left));
-      setText('enc-delta-right', fmtDelta(data.stm32_encoder_delta_right));
       renderProbes(data.sensor_probes);
       setText('last-error', data.last_error || '— none —');
       for (const entry of data.logs || []) {
@@ -398,32 +937,11 @@
       st.textContent = fresh ? (motorsOn ? 'MOTORS ON' : 'MOTORS OFF') : 'NO AGV';
       st.className = 'state ' + (fresh && motorsOn ? 'on' : 'off');
     }
-    async function postEnable(want, password) {
-      const headers = { 'Content-Type': 'application/json' };
-      if (password) headers['X-AGV-Password'] = password;
-      return fetch('/api/enable', { method: 'POST', headers, body: JSON.stringify({ enabled: want }) });
-    }
     async function setMotors(want) {
       pending = true; pendingTarget = want; btn.disabled = true;
       try {
-        let r;
-        if (!want) {
-          r = await postEnable(false);                       // STOP: no password
-        } else {
-          let pw = sessionStorage.getItem('agv-password') || prompt('Password to start the motors:');
-          if (!pw) throw new Error('cancelled');
-          r = await postEnable(true, pw);
-          if (r.status === 403) {                            // wrong / stale password: ask once more
-            sessionStorage.removeItem('agv-password');
-            pw = prompt('Wrong password. Try again:');
-            if (!pw) throw new Error('cancelled');
-            r = await postEnable(true, pw);
-          }
-          if (r.ok) sessionStorage.setItem('agv-password', pw);
-          else sessionStorage.removeItem('agv-password');
-          if (r.status === 403) alert('Wrong password.');
-          if (r.status === 429) alert('Too many wrong passwords. Wait 30 seconds.');
-        }
+        if (want && !(await requireAuth('Sign in to start the motors.'))) throw new Error('cancelled');
+        const r = await authFetch('/api/enable', { enabled: want });   // STOP never needs a session
         if (!r.ok) throw new Error(r.status);
       } catch (err) {
         console.warn('enable failed', err);
@@ -468,11 +986,6 @@
     let driveMode = 'auto';
     const held = new Set();
     let driveTimer = null, lastSent = '';
-    function askPassword(force) {
-      let pw = force ? null : sessionStorage.getItem('agv-password');
-      if (!pw) pw = prompt('Password:');
-      return pw;
-    }
     function driveVector() {
       const v = (held.has('up') ? 1 : 0) - (held.has('down') ? 1 : 0);
       const w = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0);
@@ -486,10 +999,7 @@
         ? `manual: v=${v >= 0 ? '+' : ''}${v}  turn=${w >= 0 ? '+' : ''}${w}` : 'manual: off';
       if (!force && key === '0,0' && lastSent === '0,0') return;
       lastSent = key;
-      const pw = sessionStorage.getItem('agv-password') || '';
-      fetch('/api/manual', { method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-AGV-Password': pw },
-        body: JSON.stringify({ v, w }) }).catch(() => {});
+      authFetch('/api/manual', { v, w }).catch(() => {});
     }
     function refreshDrive() {
       document.querySelectorAll('#dpad button[data-dir]').forEach(b => {
@@ -511,23 +1021,9 @@
       $('manual-live').textContent = can ? $('manual-live').textContent : 'manual: off';
     }
     async function setMode(mode) {
-      const headers = { 'Content-Type': 'application/json' };
-      let pw = null;
-      if (mode === 'manual') {
-        pw = askPassword(false);
-        if (!pw) return;
-        headers['X-AGV-Password'] = pw;
-      }
-      let r = await fetch('/api/mode', { method: 'POST', headers, body: JSON.stringify({ mode }) });
-      if (r.status === 403 && mode === 'manual') {
-        pw = askPassword(true);
-        if (!pw) return;
-        headers['X-AGV-Password'] = pw;
-        r = await fetch('/api/mode', { method: 'POST', headers, body: JSON.stringify({ mode }) });
-      }
-      if (r.ok && pw) sessionStorage.setItem('agv-password', pw);
-      else if (r.status === 403) { sessionStorage.removeItem('agv-password'); alert('Wrong password.'); }
-      else if (r.status === 429) alert('Too many wrong passwords. Wait 30 seconds.');
+      if (mode === 'manual' && !(await requireAuth('Sign in to drive the rover by hand.'))) return;
+      const r = await authFetch('/api/mode', { mode });
+      if (!r.ok && r.status !== 401) toast('Mode not changed (' + r.status + ')', 'err');
     }
     $('mode-auto').addEventListener('click', () => { releaseAll(); setMode('auto'); });
     $('mode-manual').addEventListener('click', () => setMode('manual'));
@@ -581,15 +1077,9 @@
     obstBox.addEventListener('change', async () => {
       const want = obstBox.checked;
       obstSetAt = Date.now();
-      const headers = { 'Content-Type': 'application/json' };
-      if (!want) {                                   // removing a safety layer: password
-        let pw = sessionStorage.getItem('agv-password') || prompt('Password to turn the obstacle stop OFF:');
-        if (!pw) { obstBox.checked = true; return; }
-        headers['X-AGV-Password'] = pw;
-      }
-      const r = await fetch('/api/obstacle', { method: 'POST', headers, body: JSON.stringify({ enabled: want }) });
-      if (r.ok && headers['X-AGV-Password']) sessionStorage.setItem('agv-password', headers['X-AGV-Password']);
-      if (!r.ok) { obstBox.checked = true; sessionStorage.removeItem('agv-password'); alert(r.status === 403 ? 'Wrong password.' : 'Not changed.'); }
+      if (!want && !(await requireAuth('Sign in to turn the obstacle stop OFF.'))) { obstBox.checked = true; return; }
+      const r = await authFetch('/api/obstacle', { enabled: want });
+      if (!r.ok) { obstBox.checked = true; toast('Obstacle setting not changed', 'err'); }
     });
     function updateObstacleSwitch(enforced) {
       if (Date.now() - obstSetAt < 2000) return;
@@ -598,6 +1088,569 @@
         ? 'Obstacle stop IGNORED (bench test only)' : 'Obstacle stop enforced (camera)';
       $('obst-label').style.color = enforced === false ? '#f87171' : '';
     }
+
+
+    // ── Chassis diagram · wheel speed · tests ────────────────────────
+    // Speeds come from the Arduino encoders (firmware v3) in m/s. The drawing
+    // turns each wheel pair at the measured speed (or at the commanded speed
+    // when no encoder data exists), and the chart keeps the last 12 s.
+    const CH = { vmax: 0.5, hist: [], dist: { l: 0, r: 0 }, vis: { l: 0, r: 0 },
+                 peak: { l: 0, r: 0 }, last: null, encOk: false, lastFrame: 0 };
+    const CH_WINDOW_S = 12, TREAD_PITCH = 14;
+    (function buildTreads() {
+      const NS = 'http://www.w3.org/2000/svg';
+      for (const [id, x, y] of [['FL', 62, 58], ['RL', 62, 188], ['FR', 344, 58], ['RR', 344, 188]]) {
+        const g = $('tread-' + id);
+        for (let i = -1; i < 7; i++) {
+          const ln = document.createElementNS(NS, 'line');
+          ln.setAttribute('x1', x + 3); ln.setAttribute('x2', x + 31);
+          ln.setAttribute('y1', y + i * TREAD_PITCH); ln.setAttribute('y2', y + i * TREAD_PITCH);
+          ln.setAttribute('class', 'ch-tread');
+          g.appendChild(ln);
+        }
+      }
+    })();
+    function treadShift(side, offsetPx) {
+      const m = ((offsetPx % TREAD_PITCH) + TREAD_PITCH) % TREAD_PITCH;
+      for (const id of side === 'l' ? ['FL', 'RL'] : ['FR', 'RR'])
+        $('tread-' + id).setAttribute('transform', `translate(0 ${m})`);
+    }
+    const mps = (v) => { v = Math.abs(v) < 0.005 ? 0 : v; return `${v >= 0 ? '+' : ''}${v.toFixed(2)}`; };
+    function updateWheels(d) {
+      CH.vmax = d.wheel_max_mps || CH.vmax;
+      const ready = !!d.fw_closed_ready;
+      CH.encOk = ready;
+      const tl = d.wheel_tgt_l_mps || 0, tr = d.wheel_tgt_r_mps || 0;
+      // Without encoders show what is commanded (PWM / 255 of full speed).
+      const ml = ready ? (d.wheel_meas_l_mps || 0) : (d.left_pwm || 0) / 255 * CH.vmax;
+      const mr = ready ? (d.wheel_meas_r_mps || 0) : (d.right_pwm || 0) / 255 * CH.vmax;
+      const now = performance.now() / 1000;
+      CH.last = { t: now, tl, tr, ml, mr };
+      CH.hist.push(CH.last);
+      while (CH.hist.length && now - CH.hist[0].t > CH_WINDOW_S) CH.hist.shift();
+      CH.peak.l = Math.max(CH.peak.l, Math.abs(ml));
+      CH.peak.r = Math.max(CH.peak.r, Math.abs(mr));
+      // chip + toggle
+      const chip = $('loop-chip');
+      if (!ready) { chip.textContent = 'NO ENCODER DATA (flash firmware v3)'; chip.className = 'pill warn'; }
+      else if (d.wheel_closed_loop) { chip.textContent = 'CLOSED LOOP · PID'; chip.className = 'pill ok'; }
+      else { chip.textContent = 'OPEN LOOP · raw PWM'; chip.className = 'pill warn'; }
+      if (Date.now() - loopSetAt > 2000) $('loop-toggle').checked = d.closed_loop_wanted !== false;
+      $('loop-toggle').disabled = !ready;
+      // numbers
+      const err = (t, m) => (Math.abs(t) < 0.02 ? '—' : `${((m - t) / Math.abs(t) * 100 >= 0 ? '+' : '')}${((m - t) / Math.abs(t) * 100).toFixed(0)}%`);
+      setText('cs-l', `${mps(tl)} / ${mps(ml)} m/s`);
+      setText('cs-r', `${mps(tr)} / ${mps(mr)} m/s`);
+      setText('ce-l', ready ? err(tl, ml) : 'n/a');
+      setText('ce-r', ready ? err(tr, mr) : 'n/a');
+      setText('cpk', `${CH.peak.l.toFixed(2)} · ${CH.peak.r.toFixed(2)} m/s`);
+      setText('cpwm', `${d.wheel_applied_l ?? 0} · ${d.wheel_applied_r ?? 0}`);
+      setText('rd-l-1', `${mps(ml)} m/s`);
+      setText('rd-r-1', `${mps(mr)} m/s`);
+      setText('rd-l-2', `tgt ${mps(tl)} · pwm ${d.wheel_applied_l ?? 0}`);
+      setText('rd-r-2', `tgt ${mps(tr)} · pwm ${d.wheel_applied_r ?? 0}`);
+      // encoder badges / fault highlight
+      for (const s of ['l', 'r']) {
+        const bad = !!d['enc_fault_' + s];
+        const badge = $('encbadge-' + s).firstElementChild;
+        badge.setAttribute('class', 'ch-enc ' + (bad ? 'bad' : ready ? 'ok' : ''));
+        $('side-' + s).classList.toggle('fault', bad);
+      }
+      // arrows: length proportional to speed (full = 90 px)
+      const arrow = (side, x0, t, m) => {
+        const k = 90 / (CH.vmax || 0.5), cy = 165;
+        const dir = side === 'l' ? -1 : 1;                         // grow outward ... drawn upward = forward
+        const lm = Math.max(-100, Math.min(100, m * k)), lt = Math.max(-100, Math.min(100, t * k));
+        $(`arr-${side}-m`).setAttribute('y2', cy - lm);
+        $(`arr-${side}-t`).setAttribute('y2', cy - lt);
+      };
+      arrow('l', 40, tl, ml); arrow('r', 400, tr, mr);
+      updateDock(d, ml, mr, tl, tr, ready);
+      updateMotors(d, ml, mr, tl, tr, ready);
+      updateEncoderTools(d);
+      DT.applied = { l: d.wheel_applied_l ?? 0, r: d.wheel_applied_r ?? 0 };
+      DT.meas = { l: ml, r: mr };
+      drawChart();
+      stepTestSample(now, tl, tr, ml, mr);
+    }
+    function wheelAnimate(ts) {
+      const dt = Math.min(0.1, (ts - (CH.lastFrame || ts)) / 1000);
+      CH.lastFrame = ts;
+      if (CH.last) {
+        for (const s of ['l', 'r']) {
+          const v = s === 'l' ? CH.last.ml : CH.last.mr;
+          CH.vis[s] += (v - CH.vis[s]) * Math.min(1, dt * 8);
+          CH.dist[s] += CH.vis[s] * dt;
+          treadShift(s, CH.dist[s] * 600);        // 600 px of tread per metre (visual only)
+        }
+      }
+      requestAnimationFrame(wheelAnimate);
+    }
+    requestAnimationFrame(wheelAnimate);
+
+    function drawChart() {
+      document.querySelectorAll('canvas.speed-chart').forEach(drawChartOn);
+    }
+    function drawChartOn(cv) {
+      const c = cv.getContext('2d');
+      const W = cv.width, H = cv.height, padL = 46, padR = 10, padT = 10, padB = 20;
+      c.clearRect(0, 0, W, H);
+      const vm = Math.max(0.1, CH.vmax * 1.1);
+      const x = (t, now) => padL + (W - padL - padR) * (1 - (now - t) / CH_WINDOW_S);
+      const y = (v) => padT + (H - padT - padB) * (1 - (v + vm) / (2 * vm));
+      c.font = '11px ui-monospace, monospace'; c.fillStyle = '#93a2b8'; c.strokeStyle = '#293342'; c.lineWidth = 1;
+      for (const v of [-vm, -vm / 2, 0, vm / 2, vm]) {
+        c.beginPath(); c.moveTo(padL, y(v)); c.lineTo(W - padR, y(v)); c.stroke();
+        c.fillText(v.toFixed(2), 4, y(v) + 4);
+      }
+      c.fillText('m/s', 4, 10); c.fillText('-12 s', padL, H - 5); c.fillText('now', W - padR - 24, H - 5);
+      if (CH.hist.length < 2) return;
+      const now = CH.hist[CH.hist.length - 1].t;
+      const line = (key, color, dash) => {
+        c.beginPath(); c.setLineDash(dash); c.strokeStyle = color; c.lineWidth = dash.length ? 2 : 2.5;
+        CH.hist.forEach((p, i) => { const px = x(p.t, now), py = y(p[key]); i ? c.lineTo(px, py) : c.moveTo(px, py); });
+        c.stroke(); c.setLineDash([]);
+      };
+      line('tl', '#60a5fa', [6, 5]); line('tr', '#fb923c', [6, 5]);
+      line('ml', '#60a5fa', []);    line('mr', '#fb923c', []);
+    }
+
+    // closed loop switch
+    let loopSetAt = 0;
+    $('loop-toggle').addEventListener('change', async (e) => {
+      loopSetAt = Date.now();
+      $('loop-label').textContent = e.target.checked
+        ? 'Closed loop: encoder PID holds wheel speed' : 'Open loop: raw PWM (no speed feedback)';
+      fetch('/api/loop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ closed_loop: e.target.checked }) }).catch(() => {});
+    });
+
+    // per-side / pivot tests: hold to run, release to stop (same deadman as the d-pad)
+    let testTimer = null, testCmd = null, testBtn = null, stepRun = null;
+    const testPower = () => Number($('test-pct').value) / 100;
+    $('test-pct').addEventListener('input', () => { $('test-pct-val').textContent = `${$('test-pct').value}%`; });
+    function postWheels(l, r) {
+      return authFetch('/api/manual', { left: l, right: r }).catch(() => {});
+    }
+    function testTick() {
+      if (!manualActive() || !testCmd) return stopTest();
+      postWheels(testCmd.l * testPower(), testCmd.r * testPower());
+    }
+    function startTest(l, r, el, side) {
+      if (!manualActive()) { $('step-result').textContent = 'step test: press "Enable manual access" first'; return; }
+      testCmd = { l, r }; testBtn = el;
+      el.classList.add('held');
+      if (!testTimer) testTimer = setInterval(testTick, 100);
+      testTick();
+    }
+    function stopTest() {
+      if (testBtn) testBtn.classList.remove('held');
+      const had = !!testCmd;
+      testCmd = null; testBtn = null;
+      if (testTimer) { clearInterval(testTimer); testTimer = null; }
+      if (had) postWheels(0, 0);
+    }
+    document.querySelectorAll('#testbtns button[data-l]').forEach(b => {
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); b.setPointerCapture(e.pointerId);
+        startTest(Number(b.dataset.l), Number(b.dataset.r), b);
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, stopTest);
+    });
+    document.querySelectorAll('.ch-side').forEach(g => {
+      g.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); g.setPointerCapture(e.pointerId);
+        g.classList.add('held');
+        startTest(g.dataset.side === 'l' ? 1 : 0, g.dataset.side === 'r' ? 1 : 0, g, g.dataset.side);
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'])
+        g.addEventListener(ev, () => { g.classList.remove('held'); stopTest(); });
+    });
+    window.addEventListener('blur', stopTest);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stopTest(); });
+
+    // Step test: both sides at the test power for 3 s, then report how well the
+    // wheels followed (rise time to 90 % and error over the last second).
+    $('step-test').addEventListener('click', () => {
+      if (stepRun) return;
+      if (!manualActive()) { $('step-result').textContent = 'step test: press "Enable manual access" first'; return; }
+      stepRun = { t0: performance.now() / 1000, samples: [], dur: 3.0 };
+      $('step-result').textContent = 'step test: running…';
+      $('step-test').disabled = true;
+      stepRun.timer = setInterval(() => {
+        const el = performance.now() / 1000 - stepRun.t0;
+        if (el >= stepRun.dur || !manualActive()) { finishStep(); return; }
+        postWheels(testPower(), testPower());
+      }, 100);
+      postWheels(testPower(), testPower());
+    });
+    function stepTestSample(now, tl, tr, ml, mr) {
+      if (stepRun) stepRun.samples.push({ t: now - stepRun.t0, tl, tr, ml, mr });
+    }
+    function finishStep() {
+      clearInterval(stepRun.timer);
+      postWheels(0, 0);
+      const S = stepRun.samples; stepRun.done = true;
+      const res = (tk, mk, name) => {
+        const final = S.filter(p => p.t > stepRun.dur - 1.0);
+        if (!final.length) return `${name}: no data`;
+        const target = final.reduce((a, p) => a + p[tk], 0) / final.length;
+        const meas = final.reduce((a, p) => a + p[mk], 0) / final.length;
+        if (Math.abs(target) < 0.02) return `${name}: target ~0 (raise Max speed / test power)`;
+        const hit = S.find(p => Math.abs(p[mk]) >= 0.9 * Math.abs(target));
+        const rise = hit ? `${hit.t.toFixed(2)} s` : 'never';
+        return `${name}: target ${target.toFixed(2)}, got ${meas.toFixed(2)} m/s (${((meas - target) / Math.abs(target) * 100).toFixed(0)}%), 90% in ${rise}`;
+      };
+      $('step-result').textContent = 'step test: ' + res('tl', 'ml', 'L') + '  |  ' + res('tr', 'mr', 'R');
+      $('step-test').disabled = false;
+      stepRun = null;
+    }
+
+
+    // ── Per-side driver test: sliders, +/- buttons, ramp, reset ───────
+    const DT = { mode: 'speed', l: 0, r: 0, sent: false, ramp: null, applied: { l: 0, r: 0 }, meas: { l: 0, r: 0 } };
+    function dtRender() {
+      const raw = DT.mode === 'raw';
+      for (const s of ['l', 'r']) {
+        $('dt-' + s).value = DT[s];
+        const pwm = DT.applied[s];
+        const dir = pwm > 0 ? '▲ fwd' : pwm < 0 ? '▼ rev' : '■ stop';
+        $('dt-val-' + s).textContent = raw ? `PWM ${Math.round(DT[s] / 100 * 255)}` : `${DT[s] >= 0 ? '+' : ''}${DT[s]} %`;
+        $('dt-sub-' + s).textContent = `${dir} · applied ${pwm} · ${DT.meas[s] >= 0 ? '+' : ''}${DT.meas[s].toFixed(2)} m/s`;
+      }
+      document.querySelectorAll('#dt-mode button').forEach(b => b.classList.toggle('active', b.dataset.m === DT.mode));
+      const can = manualActive();
+      $('dtest').classList.toggle('off', !can);
+      $('dt-enable').disabled = can;
+      $('dk-enable').disabled = can;
+      $('dk-enable').textContent = can ? 'Manual access ON' : 'Enable manual access';
+      $('dt-enable').textContent = can ? 'Motor test enabled' : 'Enable motor test (sign in)';
+      $('dt-state').textContent = !can ? 'test: press "Enable motor test" first'
+        : (DT.l || DT.r) ? `test: running (${raw ? 'raw PWM' : 'speed'})` : 'test: ready (values 0)';
+      ['dt-l', 'dt-r', 'dt-ramp', 'dt-link'].forEach(id => { $(id).disabled = !can; });
+      document.querySelectorAll('.dt-btns button').forEach(b => { b.disabled = !can; });
+    }
+    function dtSet(side, v, fromUser) {
+      if (fromUser && DT.ramp) dtStopRamp();
+      v = Math.max(-100, Math.min(100, Math.round(v)));
+      DT[side] = v;
+      if ($('dt-link').checked) DT[side === 'l' ? 'r' : 'l'] = v;
+      dtRender();
+    }
+    function dtSend() {
+      const can = manualActive();
+      const active = DT.l !== 0 || DT.r !== 0;
+      if (!can) { if (active) dtReset(false); return; }
+      if (!active && !DT.sent) return;
+      authFetch('/api/manual', { left: DT.l / 100, right: DT.r / 100, raw: DT.mode === 'raw' }).catch(() => {});
+      DT.sent = active;
+    }
+    setInterval(dtSend, 100);
+    function dtStopRamp() {
+      if (DT.ramp) { clearInterval(DT.ramp.timer); DT.ramp = null; $('dt-ramp').textContent = 'Ramp 0 → 100 → 0 %'; }
+    }
+    function dtReset(restoreLoop) {
+      dtStopRamp();
+      DT.l = DT.r = 0; DT.mode = 'speed';
+      if (restoreLoop) {
+        $('loop-toggle').checked = true; loopSetAt = Date.now();
+        fetch('/api/loop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ closed_loop: true }) }).catch(() => {});
+      }
+      dtRender();
+      dtSend();                                   // one explicit zero
+    }
+    for (const s of ['l', 'r']) {
+      $('dt-' + s).addEventListener('input', (e) => dtSet(s, Number(e.target.value), true));
+    }
+    document.querySelectorAll('.dt-btns').forEach(g => {
+      g.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        const side = g.dataset.side, d = Number(b.dataset.d);
+        dtSet(side, d === 0 ? 0 : DT[side] + d, true);
+      }));
+    });
+    document.querySelectorAll('#dt-mode button').forEach(b => b.addEventListener('click', () => {
+      DT.mode = b.dataset.m; DT.l = DT.r = 0; dtStopRamp(); dtRender();   // never carry a value across modes
+    }));
+    $('dt-link').addEventListener('change', () => { if ($('dt-link').checked) dtSet('r', DT.l, true); });
+    $('dt-reset').addEventListener('click', () => dtReset(true));
+    $('dt-ramp').addEventListener('click', () => {
+      if (DT.ramp) { dtStopRamp(); return; }
+      if (!manualActive()) return;
+      const sides = $('dt-ramp-sides').value;
+      const steps = [...Array(11).keys()].map(i => i * 10).concat([...Array(10).keys()].map(i => 90 - i * 10));
+      DT.ramp = { i: 0 };
+      $('dt-ramp').textContent = 'Stop ramp';
+      const stepFn = () => {
+        const v = steps[DT.ramp.i++];
+        if (sides !== 'r') DT.l = v; if (sides !== 'l') DT.r = v;
+        dtRender();
+        if (DT.ramp.i >= steps.length) dtStopRamp();
+      };
+      stepFn();
+      if (DT.ramp) DT.ramp.timer = setInterval(stepFn, 800);
+    });
+
+    // One button: sign in, switch to MANUAL, press START (what manual tests need).
+    async function enableManualAccess() {
+      if (!(await requireAuth('Sign in for manual access to the motors.'))) return;
+      const m = await authFetch('/api/mode', { mode: 'manual' });
+      if (!m.ok && m.status !== 401) { toast('Could not switch to MANUAL (' + m.status + ')', 'err'); return; }
+      const e = await authFetch('/api/enable', { enabled: true });
+      if (!e.ok && e.status !== 401) { toast('Could not start the motors (' + e.status + ')', 'err'); return; }
+      toast('Manual access enabled - keep this page open while testing', 'ok', 3000);
+    }
+    $('dt-enable').addEventListener('click', enableManualAccess);
+    $('dk-enable').addEventListener('click', enableManualAccess);
+    $('dk-stop').addEventListener('click', () => { stopTest(); dtReset(true); setMotors(false); });
+    $('dt-stop').addEventListener('click', () => { dtReset(true); setMotors(false); });
+    // leaving MANUAL / STOP / hidden tab: back to zero, normal closed loop
+    let dtWasActive = false;
+    setInterval(() => {
+      const can = manualActive();
+      if (dtWasActive && !can) dtReset(true);
+      dtWasActive = can;
+      dtRender();
+    }, 300);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) dtReset(false); });
+
+
+    function chip(id, text, cls) {
+      const el = $(id); el.querySelector('.v').textContent = text; el.className = 'chip ' + (cls || '');
+    }
+    function updateStrip(d, fresh) {
+      chip('sum-mode', (d.mode || 'auto').toUpperCase(), d.mode === 'manual' ? 'warn' : '');
+      chip('sum-motors', !fresh ? 'NO AGV' : d.enabled ? 'ON' : 'OFF', !fresh ? 'bad' : d.enabled ? 'good' : '');
+      const t = TRACK[d.track_state] || TRACK.NO_LINE;
+      chip('sum-line', d.mode === 'manual' ? 'manual' : t[0].split(' - ')[0],
+           d.mode === 'manual' ? '' : (d.track_state === 'ON_LINE' ? 'good' : d.track_state === 'NO_LINE' ? '' : 'warn'));
+      const ml = d.wheel_meas_l_mps || 0, mr = d.wheel_meas_r_mps || 0;
+      chip('sum-wheels', d.fw_closed_ready ? `${mps(ml)} · ${mps(mr)} m/s` : 'no encoders', d.fw_closed_ready ? '' : 'warn');
+      chip('sum-ctrl', !d.fw_closed_ready ? 'raw PWM' : d.wheel_closed_loop ? 'PID (encoders)' : 'open loop',
+           d.wheel_closed_loop ? 'good' : 'warn');
+      chip('sum-arduino', d.stm32_connected ? (d.stm32_firmware_version || 'linked') : 'DOWN', d.stm32_connected ? 'good' : 'bad');
+      const ob = d.obstacle_state || 'CLEAR';
+      chip('sum-obst', d.obstacle_enforced === false ? 'IGNORED' : ob, d.obstacle_enforced === false ? 'warn' : ob === 'CLEAR' ? 'good' : 'bad');
+      chip('sum-cam', d.camera_connected ? 'OK' : 'NONE', d.camera_connected ? 'good' : 'bad');
+    }
+    // cards fold on a click of their title; the choice is remembered
+    (function collapsibleCards() {
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem('agv-collapsed') || '[]'); } catch (e) {}
+      const cards = [...document.querySelectorAll('section.card')];
+      cards.forEach((card, i) => {
+        if (card.classList.contains('nocollapse')) return;
+        if (saved.includes(i)) card.classList.add('collapsed');
+        const h = card.querySelector('h2'); if (!h) return;
+        h.addEventListener('click', (e) => {
+          if (e.target.closest('button, input, select, a')) return;
+          card.classList.toggle('collapsed');
+          try { localStorage.setItem('agv-collapsed', JSON.stringify(
+            cards.map((c, j) => c.classList.contains('collapsed') ? j : -1).filter(j => j >= 0))); } catch (e2) {}
+        });
+      });
+    })();
+
+
+    // ── Tabs ─────────────────────────────────────────────────────────
+    // Drive (camera, vehicle state, speed, manual) -> Chassis & encoders ->
+    // Motor test -> Logs & system. The choice is kept in the URL hash and in
+    // localStorage, so a reload comes back to the same tab.
+    const TAB_IDS = ['drive', 'chassis', 'test', 'record', 'logs'];
+    function showTab(id, focus) {
+      if (!TAB_IDS.includes(id)) id = 'drive';
+      for (const t of TAB_IDS) {
+        const on = t === id;
+        $('tab-' + t).hidden = !on;
+        const b = $('tabbtn-' + t);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        if (on && focus) b.focus();
+      }
+      try { localStorage.setItem('agv-tab', id); } catch (e) {}
+      if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+      if (id === 'chassis' || id === 'test') drawChart();
+    }
+    $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) showTab(b.dataset.tab); });
+    $('tabs').addEventListener('keydown', (e) => {
+      const i = TAB_IDS.findIndex(t => $('tabbtn-' + t).getAttribute('aria-selected') === 'true');
+      if (e.key === 'ArrowRight') { e.preventDefault(); showTab(TAB_IDS[(i + 1) % TAB_IDS.length], true); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); showTab(TAB_IDS[(i + TAB_IDS.length - 1) % TAB_IDS.length], true); }
+    });
+    window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+    (function initTab() {
+      let id = location.hash.slice(1);
+      if (!TAB_IDS.includes(id)) { try { id = localStorage.getItem('agv-tab') || 'drive'; } catch (e) { id = 'drive'; } }
+      showTab(id);
+    })();
+    function updateTabDots(d) {
+      const bad = !!(d.enc_fault_l || d.enc_fault_r) || d.stm32_connected === false;
+      $('dot-chassis').className = 'tabdot' + (bad ? ' on' : '');
+      $('dot-logs').className = 'tabdot warn' + (d.last_error ? ' on' : '');
+    }
+
+
+    // ── Chassis dock: the drawing stays visible on every tab ──────────
+    (function dock() {
+      const d = $('dock'), t = $('dock-toggle');
+      const set = (hide) => { d.classList.toggle('collapsed', hide); t.textContent = hide ? 'Show' : 'Hide'; t.setAttribute('aria-expanded', hide ? 'false' : 'true'); };
+      let hide = false; try { hide = localStorage.getItem('agv-dock') === 'hidden'; } catch (e) {}
+      set(hide);
+      t.addEventListener('click', () => { const h = !d.classList.contains('collapsed'); set(h); try { localStorage.setItem('agv-dock', h ? 'hidden' : 'open'); } catch (e) {} });
+    })();
+
+    // Per-motor numbers (drawing labels + table). Motors on one side share the
+    // driver and the encoder, so FL/RL show the left values and FR/RR the right.
+    function updateMotors(d, ml, mr, tl, tr, ready) {
+      const dia = d.wheel_diameter_m || 0.065;
+      const rpm = (v) => v / (Math.PI * dia) * 60;
+      const arrow = (pwm) => pwm > 0 ? '▲' : pwm < 0 ? '▼' : '■';
+      const sides = {
+        l: { m: ml, t: tl, pwm: d.wheel_applied_l ?? 0, enc: d.stm32_encoder_left, fault: !!d.enc_fault_l, ids: ['FL', 'RL'] },
+        r: { m: mr, t: tr, pwm: d.wheel_applied_r ?? 0, enc: d.stm32_encoder_right, fault: !!d.enc_fault_r, ids: ['FR', 'RR'] },
+      };
+      for (const k of ['l', 'r']) {
+        const S = sides[k];
+        for (const id of S.ids) {
+          setText(`mt-${id}-1`, `${mps(S.m)} m/s`);
+          setText(`mt-${id}-2`, `${Math.round(rpm(S.m))} rpm`);
+          setText(`mt-${id}-3`, `PWM ${S.pwm} ${arrow(S.pwm)}`);
+          const tr_ = $('mr-' + id);
+          const c = tr_.children;
+          c[2].textContent = `${mps(S.t)} m/s`;
+          c[3].textContent = ready ? `${mps(S.m)} m/s` : 'n/a';
+          c[4].textContent = ready ? String(Math.round(rpm(S.m))) : 'n/a';
+          c[5].textContent = String(S.pwm);
+          c[6].textContent = S.pwm > 0 ? '▲ fwd' : S.pwm < 0 ? '▼ rev' : '■ stop';
+          c[7].textContent = !ready ? 'no data' : S.fault ? 'FAULT' : (id[0] === 'F' ? `${S.enc} ticks` : 'shared');
+          tr_.className = S.fault ? 'fault' : Math.abs(S.pwm) > 0 ? 'run' : '';
+        }
+      }
+    }
+
+    // Encoder check: ticks since zero, distance, and ticks-per-metre from a hand-rolled distance.
+    const ET = { l: 0, r: 0, tpm: 0 };
+    function updateEncoderTools(d) {
+      ET.l = d.enc_rel_l || 0; ET.r = d.enc_rel_r || 0; ET.tpm = d.ticks_per_m || 0;
+      setText('et-ticks', `${ET.l >= 0 ? '+' : ''}${ET.l} / ${ET.r >= 0 ? '+' : ''}${ET.r}`);
+      setText('et-dist', ET.tpm ? `${(ET.l / ET.tpm).toFixed(3)} · ${(ET.r / ET.tpm).toFixed(3)} m` : '—');
+      const dist = Number($('et-rolled').value);
+      if (dist > 0 && (Math.abs(ET.l) > 20 || Math.abs(ET.r) > 20)) {
+        const fl = Math.abs(ET.l) / dist, fr = Math.abs(ET.r) / dist;
+        $('et-result').textContent = `measured: L ${fl.toFixed(0)} · R ${fr.toFixed(0)} ticks/m   (config uses ${ET.tpm.toFixed(0)}; ` +
+          `scale AGV_ENC_PPR by ${(((fl + fr) / 2) / ET.tpm).toFixed(3)})`;
+      }
+    }
+    $('et-zero').addEventListener('click', async () => {
+      if (!(await requireAuth('Sign in to zero the encoder counts.'))) return;
+      const r = await authFetch('/api/encoders/zero', {});
+      if (r.ok) toast('Encoder counts zeroed', 'ok', 2000);
+    });
+    function updateDock(d, ml, mr, tl, tr, ready) {
+      const c = $('dock-chip'), src = $('loop-chip');
+      c.textContent = src.textContent; c.className = src.className;
+      setText('dk-l', `${mps(tl)} / ${mps(ml)} m/s`);
+      setText('dk-r', `${mps(tr)} / ${mps(mr)} m/s`);
+      setText('dk-pwm', `${d.wheel_applied_l ?? 0} · ${d.wheel_applied_r ?? 0}`);
+      const bad = [d.enc_fault_l ? 'L' : '', d.enc_fault_r ? 'R' : ''].join('');
+      setText('dk-enc', !ready ? 'no data' : bad ? `FAULT ${bad}` : `OK · ${d.stm32_encoder_left} / ${d.stm32_encoder_right}`);
+      $('dk-enc').style.color = !ready ? '#fbbf24' : bad ? '#f87171' : '#4ade80';
+    }
+
+
+    // ── Record tab ───────────────────────────────────────────────────
+    const REC = { on: false, pending: 0 };
+    const fmtT = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    async function recCall(body) {
+      try {
+        const r = await fetch('/api/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) toast('Recording request failed (' + r.status + ')', 'err');
+        return r.ok;
+      } catch (e) { toast('Recording request failed', 'err'); return false; }
+    }
+    function recStart() {
+      REC.pending = Date.now();
+      recCall({ action: 'start', rate: Number($('rec-rate').value), views: $('rec-views').checked, mode: $('rec-mode').value });
+    }
+    const recStop = () => { REC.pending = Date.now(); recCall({ action: 'stop' }); };
+    const recMark = async () => {
+      if (await recCall({ action: 'mark', note: $('rec-note').value.trim() })) { toast('Frame marked', 'ok', 1500); $('rec-note').value = ''; }
+    };
+    $('rec-start').addEventListener('click', recStart);
+    $('rec-stop').addEventListener('click', recStop);
+    $('rec-mark').addEventListener('click', recMark);
+    $('rec-quick').addEventListener('click', () => (REC.on ? recStop() : recStart()));
+    $('rec-quick-mark').addEventListener('click', recMark);
+    document.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() !== 'm' || !REC.on || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+      recMark();
+    });
+    function updateRecord(d) {
+      REC.on = !!d.rec_on;
+      const settled = Date.now() - REC.pending > 2500;
+      const chip = $('rec-chip');
+      chip.textContent = REC.on ? `● REC ${fmtT(d.rec_elapsed_s || 0)}` : 'not recording';
+      chip.className = 'pill ' + (REC.on ? 'bad' : '');
+      $('rec-start').disabled = REC.on; $('rec-stop').disabled = !REC.on; $('rec-mark').disabled = !REC.on;
+      $('rec-rate').disabled = REC.on; $('rec-mode').disabled = REC.on; $('rec-views').disabled = REC.on;
+      setText('rec-session', d.rec_session
+        ? [d.rec_session, d.rec_format, d.rec_mode, d.rec_ring_s != null ? `ring ${d.rec_ring_s}s` : null].filter(Boolean).join(' · ')
+        : '—');
+      setText('rec-frames', d.rec_frames ?? '—');
+      setText('rec-flags', `${d.rec_problems ?? 0} · ${d.rec_marks ?? 0}`);
+      setText('rec-size', `${(d.rec_mb ?? 0).toFixed(1)} MB · ${fmtT(d.rec_elapsed_s || 0)}`);
+      setText('rec-free', d.rec_free_gb != null ? `${d.rec_free_gb} GB` : '—');
+      const warn = [];
+      if (d.rec_dropped) warn.push(`${d.rec_dropped} frames dropped (disk too slow: lower the fps)`);
+      if (!REC.on && d.rec_stop_reason && d.rec_session) warn.push(`last recording ended: ${d.rec_stop_reason}`);
+      if (d.camera_connected === false) warn.push('no camera frames: nothing can be recorded (is the full project running?)');
+      $('rec-warn').textContent = warn.join(' · ');
+      $('dot-record').className = 'tabdot rec' + (REC.on ? ' on' : '');
+      const q = $('rec-quick'); q.textContent = REC.on ? `■ Stop ${fmtT(d.rec_elapsed_s || 0)}` : '● Record';
+      $('rec-quick-mark').hidden = !REC.on;
+      $('sum-rec').className = 'chip ' + (REC.on ? 'bad' : '');
+      if (REC.wasOn && !REC.on && settled) loadSessions();
+      REC.wasOn = REC.on;
+    }
+    async function loadSessions() {
+      let j;
+      try { j = await (await fetch('/api/recordings', { cache: 'no-store' })).json(); } catch (e) { return; }
+      const body = $('sessions-body');
+      if (!j.sessions.length) { body.innerHTML = '<tr><td colspan="8" class="muted">No recordings yet.</td></tr>'; return; }
+      body.innerHTML = j.sessions.map(s => {
+        const name = s.name, mb = s.size_mb != null ? `${s.size_mb} MB` : '—';
+        const len = s.duration_s != null ? fmtT(s.duration_s) : (s.active ? 'recording…' : '—');
+        return `<tr><td>${name}</td><td>${s.mode ?? (s.format ? '—' : 'continuous')}</td><td>${s.frames ?? '—'}</td><td>${s.problems ?? '—'}</td><td>${s.marks ?? '—'}</td><td>${mb}</td><td>${len}</td>
+          <td><a href="/review/${name}" target="_blank" rel="noopener">Review</a><button type="button" class="dl" data-dl="${name}">Download</button>${s.active ? '' : `<button type="button" data-del="${name}">Delete</button>`}</td></tr>`;
+      }).join('');
+      body.querySelectorAll('button[data-dl]').forEach(b => b.addEventListener('click', async () => {
+        if (!(await requireAuth('Sign in to download a recording.'))) return;
+        const n = b.dataset.dl, r = await authFetch('/api/recordings/' + n + '/token', {});
+        if (r.status === 404) { location.href = '/recordings/' + n + '.tar'; return; }   // old server: no token needed
+        if (!r.ok) { toast('Download not allowed (' + r.status + ')', 'err'); return; }
+        const j = await r.json().catch(() => ({}));
+        location.href = '/recordings/' + n + '.tar' + (j.ft ? '?ft=' + encodeURIComponent(j.ft) : '');
+      }));
+      body.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', async () => {
+        if (!confirm('Delete recording ' + b.dataset.del + '?')) return;
+        if (!(await requireAuth('Sign in to delete a recording.'))) return;
+        const r = await authFetch('/api/recordings/' + b.dataset.del, undefined, 'DELETE');
+        if (r.ok) { toast('Deleted', 'ok', 1500); loadSessions(); } else toast('Not deleted (' + r.status + ')', 'err');
+      }));
+    }
+    $('rec-refresh').addEventListener('click', loadSessions);
+    loadSessions();
+    // Initialise the mode select from the server once (never override a choice made meanwhile).
+    (async () => {
+      try {
+        const j = await (await fetch('/api/record', { cache: 'no-store' })).json();
+        const sel = $('rec-mode');
+        if (!REC.modeTouched && (j.mode === 'continuous' || j.mode === 'triggered')) sel.value = j.mode;
+      } catch (e) { /* old server: keep the default */ }
+    })();
+    $('rec-mode').addEventListener('change', () => { REC.modeTouched = true; });
+    setInterval(() => { if (!$('tab-record').hidden) loadSessions(); }, 5000);
 
     function startWebSocket() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';

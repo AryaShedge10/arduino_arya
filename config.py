@@ -10,6 +10,7 @@ All values can be overridden by environment variables.
 from __future__ import annotations
 
 import os
+import socket
 
 # ── Camera line-following ───────────────────────────────────────────────
 STEER_DEADZONE = 80                   # Pixels from center before steering
@@ -249,6 +250,63 @@ STOP_JERK = float(os.environ.get('AGV_STOP_JERK', '8000'))
 OMEGA_TAU_S = float(os.environ.get('AGV_OMEGA_TAU_S', '0.12'))
 MIN_PWM = float(os.environ.get('AGV_MIN_PWM', '40'))          # wheel stiction
 TARGET_STALE_S = float(os.environ.get('AGV_TARGET_STALE_S', '0.4'))
+
+# ── Wheel encoders + closed-loop speed (firmware v3) ───────────────────
+# One encoder per side. The firmware counts edges of channel A (2 per pulse)
+# and reports ticks/s; everything below converts between ticks and metres.
+# CALIBRATE THESE ON THE REAL ROVER: the defaults are guesses.
+CLOSED_LOOP = os.environ.get('AGV_CLOSED_LOOP', '1').lower() in ('1', 'true', 'yes', 'on')
+ENC_PPR = float(os.environ.get('AGV_ENC_PPR', '20'))            # pulses / encoder rev, per channel
+ENC_GEAR = float(os.environ.get('AGV_ENC_GEAR', '1.0'))         # encoder revs per wheel rev
+ENC_EDGES = 2                                                   # firmware counts CHANGE of A
+WHEEL_DIAMETER_M = float(os.environ.get('AGV_WHEEL_DIAMETER_M', '0.065'))
+TICKS_PER_M = ENC_PPR * ENC_EDGES * ENC_GEAR / (3.141592653589793 * WHEEL_DIAMETER_M)
+# Wheel speed reached at full PWM (level 255). Level -> target speed is linear.
+WHEEL_MAX_MPS = float(os.environ.get('AGV_WHEEL_MAX_MPS', '0.5'))
+# PID, in PWM per (m/s): error 0.1 m/s -> KP*0.1 PWM. Feed-forward is derived
+# from WHEEL_MAX_MPS and MIN_PWM so the PID only trims the remaining error.
+PID_KP = float(os.environ.get('AGV_PID_KP', '120'))
+PID_KI = float(os.environ.get('AGV_PID_KI', '250'))
+PID_KD = float(os.environ.get('AGV_PID_KD', '0'))
+
+# ── Test recordings (dashboard Record tab) ─────────────────────────────
+REC_DIR = os.environ.get('AGV_REC_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recordings'))
+REC_DEFAULT_RATE_HZ = float(os.environ.get('AGV_REC_RATE_HZ', '5'))    # frames saved per second
+REC_MAX_GB = float(os.environ.get('AGV_REC_MAX_GB', '3'))              # per session
+REC_MIN_FREE_GB = float(os.environ.get('AGV_REC_MIN_FREE_GB', '3'))    # stop when the disk gets this low
+REC_MAX_MIN = float(os.environ.get('AGV_REC_MAX_MIN', '60'))           # per session
+REC_JPEG_QUALITY = int(os.environ.get('AGV_REC_JPEG_QUALITY', '88'))
+
+# Recorder v1 knobs (nothing reads these until the v1 recorder lands).
+_TRUE = ('1', 'true', 'yes', 'on')
+REC_FORMAT = os.environ.get('AGV_REC_FORMAT', 'v1').lower()            # v1 (default) | v0 (rollback)
+REC_MODE_DEFAULT = os.environ.get('AGV_REC_MODE_DEFAULT', 'continuous').lower()
+REC_SAVE_WIDTH = int(os.environ.get('AGV_REC_SAVE_WIDTH', '0'))        # 0 = full size
+REC_SHARD_S = float(os.environ.get('AGV_REC_SHARD_S', '300'))
+REC_SHARD_MAX_FRAMES = int(os.environ.get('AGV_REC_SHARD_MAX_FRAMES', '3000'))
+REC_FSYNC_S = float(os.environ.get('AGV_REC_FSYNC_S', '2.0'))
+REC_QUEUE_MAX = int(os.environ.get('AGV_REC_QUEUE_MAX', '24'))
+REC_PRE_S = float(os.environ.get('AGV_REC_PRE_S', '8'))
+REC_RING_HZ = float(os.environ.get('AGV_REC_RING_HZ', '10'))
+REC_RING_MAX_MB = float(os.environ.get('AGV_REC_RING_MAX_MB', '48'))
+REC_POST_S = float(os.environ.get('AGV_REC_POST_S', '3'))
+REC_BASELINE_HZ = float(os.environ.get('AGV_REC_BASELINE_HZ', '0.5'))
+REC_TELEM_HZ = float(os.environ.get('AGV_REC_TELEM_HZ', '10'))
+REC_TRIG_COOLDOWN_S = float(os.environ.get('AGV_REC_TRIG_COOLDOWN_S', '1.0'))
+REC_TRIG_PERSIST_S = float(os.environ.get('AGV_REC_TRIG_PERSIST_S', '30.0'))   # a condition that stays true re-fires only this often
+REC_TRIG_REARM_S = float(os.environ.get('AGV_REC_TRIG_REARM_S', '1.0'))
+REC_TRIG_MAX_OFFSET_M = float(
+    os.environ.get('AGV_REC_TRIG_MAX_OFFSET_M', str(BEV_X_HALF_M + 0.2)))
+REC_TRIG_MAX_ANGLE_DEG = float(os.environ.get('AGV_REC_TRIG_MAX_ANGLE_DEG', '75'))
+REC_TRIG_MIN_STRIPS = int(os.environ.get('AGV_REC_TRIG_MIN_STRIPS', '2'))
+REC_TRIG_JUMP_M = float(os.environ.get('AGV_REC_TRIG_JUMP_M', '0.15'))
+REC_TRIG_JUMP_DEG = float(os.environ.get('AGV_REC_TRIG_JUMP_DEG', '25'))
+REC_REQUIRE_AUTH = os.environ.get('AGV_REC_REQUIRE_AUTH', '1').lower() in _TRUE
+REC_LIST_REQUIRE_AUTH = os.environ.get('AGV_REC_LIST_REQUIRE_AUTH', '0').lower() in _TRUE
+REC_FILE_TOKEN_TTL_S = float(os.environ.get('AGV_REC_FILE_TOKEN_TTL_S', '600'))
+REC_DERIVED_CACHE = int(os.environ.get('AGV_REC_DERIVED_CACHE', '64'))
+REC_DERIVED_WHILE_DRIVING = os.environ.get('AGV_REC_DERIVED_WHILE_DRIVING', '0').lower() in _TRUE
+ROBOT_ID = os.environ.get('AGV_ROBOT_ID') or socket.gethostname()
 
 # ── Telemetry / dashboard ──────────────────────────────────────────────
 TELEMETRY_DIR = os.environ.get('AGV_DASHBOARD_DIR', '/tmp/agv-dashboard')

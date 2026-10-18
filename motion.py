@@ -22,8 +22,8 @@ import time
 from dataclasses import dataclass
 
 from config import (
-    MAX_ACCEL, MAX_JERK, MIN_PWM, MOTION_HZ, OMEGA_TAU_S, STOP_ACCEL,
-    STOP_JERK, TARGET_STALE_S,
+    CLOSED_LOOP, MAX_ACCEL, MAX_JERK, MIN_PWM, MOTION_HZ, OMEGA_TAU_S,
+    STOP_ACCEL, STOP_JERK, TARGET_STALE_S, TICKS_PER_M, WHEEL_MAX_MPS,
 )
 
 log = logging.getLogger('agv.motion')
@@ -70,6 +70,16 @@ class WheelCommand:
     right: int = 0
     left_level: float = 0.0
     right_level: float = 0.0
+    left_mps: float = 0.0          # commanded wheel speed (closed loop), m/s
+    right_mps: float = 0.0
+    closed: bool = False           # True = the Arduino PID holds these speeds
+
+
+def level_to_mps(level: float) -> float:
+    """Jerk-limited level (-255..255) -> wheel speed target in m/s."""
+    if abs(level) < 1.0:
+        return 0.0
+    return level / 255.0 * WHEEL_MAX_MPS
 
 
 class MotionController:
@@ -125,6 +135,8 @@ class MotionThread(threading.Thread):
         self._target = (0.0, 0.0, True, 0.0)     # v, omega, emergency, stamp
         self._enabled = False
         self._stopping = False
+        self._want_closed = CLOSED_LOOP
+        self._raw_pwm = False
         self.last = WheelCommand()
         self.why_stopped = 'start'
         self._last_err = 0.0
@@ -134,6 +146,18 @@ class MotionThread(threading.Thread):
         with self._lock:
             self._target = (v, omega, emergency, time.monotonic())
             self._enabled = enabled
+
+    def set_closed_loop(self, want: bool) -> None:
+        """Dashboard switch: PID speed control (True) or raw PWM (False). It
+        only takes effect while the firmware reports closed-loop support."""
+        with self._lock:
+            self._want_closed = bool(want)
+
+    def set_raw_pwm(self, raw: bool) -> None:
+        """Driver test: send the shaped level as the literal PWM (no stiction
+        dead-band mapping, no PID), so a slider value of 100 means PWM 100."""
+        with self._lock:
+            self._raw_pwm = bool(raw)
 
     def request_stop(self) -> None:
         with self._lock:
@@ -153,6 +177,8 @@ class MotionThread(threading.Thread):
             with self._lock:
                 v, omega, emergency, stamp = self._target
                 enabled, stopping = self._enabled, self._stopping
+                want_closed = self._want_closed
+                raw_pwm = self._raw_pwm
             why = ''
             if stopping:
                 why = 'shutting down'
@@ -166,7 +192,19 @@ class MotionThread(threading.Thread):
                 v, omega, emergency = 0.0, 0.0, True
             try:
                 cmd = self._motion.step(v, omega, emergency, dt)
-                self._arduino.send_motors(cmd.left, cmd.right)
+                if raw_pwm:
+                    cmd.left = int(round(cmd.left_level))
+                    cmd.right = int(round(cmd.right_level))
+                    self._arduino.send_motors(cmd.left, cmd.right)
+                elif want_closed and self._arduino.closed_loop_ready():
+                    cmd.left_mps = level_to_mps(cmd.left_level)
+                    cmd.right_mps = level_to_mps(cmd.right_level)
+                    cmd.closed = True
+                    self._arduino.send_speed(
+                        round(cmd.left_mps * TICKS_PER_M),
+                        round(cmd.right_mps * TICKS_PER_M))
+                else:
+                    self._arduino.send_motors(cmd.left, cmd.right)
             except Exception as exc:                      # keep the loop alive
                 if now - self._last_err > 2.0:            # 50 Hz: do not spam
                     self._last_err = now

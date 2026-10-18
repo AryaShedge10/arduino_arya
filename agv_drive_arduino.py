@@ -26,12 +26,22 @@ import numpy as np
 
 from arduino import Arduino, ArduinoReport
 from camera import Camera, CameraReport
-from config import LOG_FILE, MANUAL_TURN_FRAC, OBST_ENABLED, SHOW_WINDOW, V_MAX
-from control_state import MANUAL_STALE_S, ControlReader, write_enabled
-from decision import LineController
+from config import (
+    LOG_FILE, MANUAL_TURN_FRAC, OBST_ENABLED, SHOW_WINDOW, TICKS_PER_M, V_MAX,
+    WHEEL_DIAMETER_M, WHEEL_MAX_MPS,
+)
+from control_state import MANUAL_STALE_S, ControlReader, write_enabled, write_state
+from rec_row import build_log_row
+import build_info
+import config
+from rec_row import build_telem_row
+from recorder import make_recorder
+from triggers import TriggerEngine, legacy_problem
+from decision import Decision, Direction, LineController
+from manual import manual_command
 from motion import MotionThread
 from telemetry import (
-    LOG_CAT_CAMERA, LOG_CAT_SYSTEM,
+    LOG_CAT_CAMERA, LOG_CAT_STM32, LOG_CAT_SYSTEM,
     SensorProbe, TelemetryPublisher, TelemetryState,
 )
 from vision import ObstacleResult, Vision, VisionResult
@@ -95,6 +105,13 @@ class AGV:
         self._last_seq = -1
         self._last_publish = 0.0
         self._enabled = False
+        self._closed_wanted = True
+        self.recorder = make_recorder()
+        self.trig = TriggerEngine()
+        self._rec_warned = False
+        self._rec_req = False                   # we started a recording for the current request
+        self._rec_mark_seen = time.time()
+        self._enc_zero_seen = time.time()       # ignore zero requests from before this run
         self._last: dict = {}
         self._vis = VisionResult()
         self._snap_t = 0.0
@@ -118,6 +135,11 @@ class AGV:
 
     def start(self) -> None:
         write_enabled(False)                    # never start driving on boot (speed kept)
+        write_state(record=False)               # ... nor start recording by itself
+        try:
+            build_info.get_build_info()          # cached; code version for the recordings
+        except Exception:
+            log.exception('build_info failed (continuing)')
         self.telemetry.restore_previous()
         self.telemetry.start()
         log.info('=' * 55)
@@ -133,6 +155,8 @@ class AGV:
     # ── shutdown ─────────────────────────────────────────────────────
     def stop(self) -> None:
         log.warning('Shutting down AGV (%s)...', self.stop_reason)
+        self.recorder.stop('AGV shutting down')
+        self.recorder.close(5.0)
         self.motion.request_stop()                 # ramps to 0, then returns
         if self.motion.is_alive():
             self.motion.join(timeout=2.0)
@@ -173,6 +197,9 @@ class AGV:
         self._vis = vis
 
         ctl = self.control.state()
+        if ctl['enc_zero_ts'] > self._enc_zero_seen:
+            self._enc_zero_seen = ctl['enc_zero_ts']
+            self.arduino.zero_encoders()
         self._snapshot_if_obstacle(now, frame, vis)
         enabled = ctl['enabled']
         speed_pct = ctl['max_speed_pct']
@@ -183,29 +210,119 @@ class AGV:
             self.vision.reset_floor()       # operator re-armed: relearn the floor
         link_ok = self.arduino.link_alive()
         self.controller.speed_scale = scale
+        self._closed_wanted = ctl['closed_loop']
         _w = self.motion.snapshot()
         self.controller.moving = (enabled and ctl['mode'] == 'auto'
                                   and (abs(_w.left) + abs(_w.right)) > 80)
         enforce = ctl['obstacle_stop']
-        d = self.controller.decide(vis.line, frame_ok,
-                                   vis.obstacle if enforce else ObstacleResult(),
-                                   link_ok, now)
-        if not enforce and vis.obstacle.state != 'CLEAR':
-            d = dataclasses.replace(
-                d, status_text=d.status_text + f' [obstacle {vis.obstacle.state} ignored]')
+        # A raw driver test bypasses the encoder PID for as long as it is fresh.
+        raw_test = (ctl['mode'] == 'manual' and ctl.get('manual_l') is not None
+                    and ctl.get('manual_raw')
+                    and time.time() - ctl['manual_ts'] < MANUAL_STALE_S)
+        self.motion.set_closed_loop(ctl['closed_loop'] and not raw_test)
+        self.motion.set_raw_pwm(raw_test)
         manual = ctl['mode'] == 'manual'
         if manual:
+            # Manual owns the wheels: the line follower is not consulted at all
+            # and its state is cleared so AUTO starts fresh.
+            self.controller.reset()
+            d = Decision(Direction.CENTER, 'S', 'S', 0.0, 0.0, True,
+                         'MANUAL', (0, 200, 255))
             d, v_t, w_t = self._manual_target(d, ctl, speed_pct, enabled)
-            self.motion.set_target(v_t, w_t, d.emergency, enabled)
         else:
+            d = self.controller.decide(vis.line, frame_ok,
+                                       vis.obstacle if enforce else ObstacleResult(),
+                                       link_ok, now)
+            if not enforce and vis.obstacle.state != 'CLEAR':
+                d = dataclasses.replace(
+                    d, status_text=d.status_text + f' [obstacle {vis.obstacle.state} ignored]')
             v_t, w_t = d.v * scale, d.omega * scale
-            self.motion.set_target(v_t, w_t, d.emergency, enabled)
+        self.motion.set_target(v_t, w_t, d.emergency, enabled)
         wheels = self.motion.snapshot()
 
         events = self._transitions(d, vis, enabled, frame_ok, ctl['mode'])
+        self._record(now, frame, info, vis, d, ctl, enabled, speed_pct, v_t, w_t, wheels, link_ok, events)
         self._enabled = enabled
         self._publish(now, frame, vis, d, wheels, enabled, link_ok, events,
                       speed_pct, v_t, w_t, ctl['mode'], enforce)
+
+    # ── test recording ───────────────────────────────────────────────
+    def _record(self, now, frame, info, vis, d, ctl, enabled, speed_pct, v_t, w_t,
+                wheels, link_ok, events) -> None:
+        rec = self.recorder
+        want = ctl['record']
+        if want and not rec.active:
+            if self._rec_req:                  # it ended by itself (disk / size / time limit)
+                self._rec_req = False
+                write_state(record=False)
+            else:
+                self._rec_req = True
+                name = rec.start(ctl['record_rate'], ctl['record_views'],
+                                 self._rec_meta(frame), mode=ctl['record_mode'])
+                if not name:
+                    self._rec_req = False
+                    write_state(record=False)
+        elif not want and rec.active:
+            rec.stop()
+            self._rec_req = False
+        elif not want:
+            self._rec_req = False
+        if not rec.active:
+            return
+        if ctl['record_mark_ts'] > self._rec_mark_seen:
+            self._rec_mark_seen = ctl['record_mark_ts']
+            rec.mark(ctl['record_mark_note'])
+        for cat, text in events:
+            rec.event(cat.lower(), text)
+        line, obst = vis.line, vis.obstacle
+        snap = self.arduino.snapshot()
+        h, w = (frame.shape[:2] if frame is not None else (0, 0))
+        curve_px = [[int(x), int(y)] for x, y in
+                    self.vision.world_to_frame(list(line.curve)[::max(1, len(line.curve) // 14)], w, h)] if frame is not None and line.found else []
+        look_px = None
+        if frame is not None and line.found and line.look_point is not None:
+            lp = self.vision.world_to_frame([line.look_point], w, h)
+            look_px = [int(lp[0][0]), int(lp[0][1])] if lp else None
+        row = build_log_row(
+            seq=getattr(info, 'sequence', -1), frame_mono=getattr(info, 'monotonic', None),
+            t_mono=now, ctl=ctl, enabled=enabled, speed_pct=speed_pct, line=line, obst=obst,
+            enforce=ctl['obstacle_stop'], d=d, v_t=v_t, w_t=w_t, wheels=wheels, snap=snap,
+            link_ok=link_ok, vision_ms=vis.ms, curve_px=curve_px, look_px=look_px,
+            closed_wanted=ctl['closed_loop'], fw_ready=self.arduino.closed_loop_ready())
+        problem = legacy_problem(row)
+        triggers, telem = (), None
+        try:
+            triggers = self.trig.evaluate(row, now)
+            telem = build_telem_row(row)
+        except Exception:
+            if not self._rec_warned:
+                self._rec_warned = True
+                log.exception('recording trigger/telemetry failed (continuing)')
+        rec.tick(time.time(), frame, row, problem, self.vision.debug_image,
+                 t_mono=now, triggers=triggers, telem=telem)
+
+    def _rec_meta(self, frame) -> dict:
+        """Extra session metadata (every access guarded; never raises)."""
+        try:
+            fh, fw = (frame.shape[:2] if frame is not None else (None, None))
+        except Exception:
+            fh = fw = None
+        fw_ver, ready = None, None
+        try:
+            snap = self.arduino.snapshot()
+            fw_ver = snap.firmware_version or None
+            for ln in reversed(list(snap.recent_replies or [])):
+                if 'READY' in ln:
+                    ready = ln
+                    break
+        except Exception:
+            pass
+        return {'camera': {'backend': getattr(self.camera, 'backend', None)},
+                'image': {'format': 'jpeg', 'quality': config.REC_JPEG_QUALITY,
+                          'save_width': config.REC_SAVE_WIDTH,
+                          'frame_w': fw, 'frame_h': fh, 'post_flip': True,
+                          'green_cast_fix': config.CAMERA_GREEN_CAST_FIX},
+                'firmware': {'version': fw_ver, 'ready_line': ready}}
 
     def _publish(self, now, frame, vis, d, wheels, enabled, link_ok, events,
                  speed_pct, v_t, w_t, mode, enforce=True) -> None:
@@ -258,8 +375,36 @@ class AGV:
             left_pwm=wheels.left,
             right_pwm=wheels.right,
             vision_ms=vis.ms,
+            stm32_encoder_left=snap.encoder_left,
+            stm32_encoder_right=snap.encoder_right,
+            wheel_closed_loop=wheels.closed,
+            closed_loop_wanted=self._closed_wanted,
+            fw_closed_ready=self.arduino.closed_loop_ready(),
+            wheel_tgt_l_mps=wheels.left_mps,
+            wheel_tgt_r_mps=wheels.right_mps,
+            wheel_meas_l_mps=snap.meas_ticks_left / TICKS_PER_M,
+            wheel_meas_r_mps=snap.meas_ticks_right / TICKS_PER_M,
+            wheel_applied_l=snap.applied_left,
+            wheel_applied_r=snap.applied_right,
+            enc_fault_l=bool(snap.fault_bits & 1),
+            enc_fault_r=bool(snap.fault_bits & 2),
+            wheel_max_mps=WHEEL_MAX_MPS,
+            wheel_diameter_m=WHEEL_DIAMETER_M,
+            enc_rel_l=snap.encoder_left - snap.enc_zero_left,
+            enc_rel_r=snap.encoder_right - snap.enc_zero_right,
+            ticks_per_m=TICKS_PER_M,
+            **self._rec_telemetry(),
         )
         self.telemetry.publish(state, frame=out, log_message=events or None)
+
+    def _rec_telemetry(self) -> dict:
+        s = self.recorder.status()
+        return dict(rec_on=s['on'], rec_session=s['session'], rec_frames=s['frames'],
+                    rec_problems=s['problems'], rec_marks=s['marks'], rec_dropped=s['dropped'],
+                    rec_mb=s['mb'], rec_elapsed_s=s['elapsed_s'], rec_free_gb=s['free_gb'],
+                    rec_stop_reason=s['stop_reason'],
+                    rec_format=s.get('format', 'v0'), rec_mode=s.get('mode', 'continuous'),
+                    rec_shard=str(s.get('shard', '')), rec_ring_s=float(s.get('ring_s', 0.0)))
 
     # ── HUD rendering ────────────────────────────────────────────────
     def _draw_hud(self, frame, vis: VisionResult, d, wheels, enabled, mode='auto') -> None:
@@ -329,20 +474,11 @@ class AGV:
         """Dashboard driving: hold-to-drive (deadman). The command goes through
         the same jerk limiter and the max-speed cap as automatic driving.
         Camera obstacle detection is NOT enforced here: the operator is."""
-        age = time.time() - ctl['manual_ts']
-        fresh = age < MANUAL_STALE_S
-        fwd = ctl['manual_v'] if fresh else 0.0
-        trn = ctl['manual_w'] if fresh else 0.0
-        cap = speed_pct / 100.0 * 255.0
-        v_t, w_t = fwd * cap, trn * cap * MANUAL_TURN_FRAC
-        idle = fwd == 0.0 and trn == 0.0
-        cmd = ('S' if idle else 'F' if fwd > 0 else 'B' if fwd < 0
-               else 'R' if trn > 0 else 'L')
-        text = ('MANUAL: hold a key / button to drive' if idle
-                else f'MANUAL v={fwd:+.1f} turn={trn:+.1f}')
+        m = manual_command(ctl, speed_pct)
+        v_t, w_t = m.v, m.omega
         d = dataclasses.replace(
-            d, camera_cmd=cmd, final_cmd=cmd, v=v_t, omega=w_t,
-            emergency=(idle or not fresh), status_text=text,
+            d, camera_cmd=m.cmd, final_cmd=m.cmd, v=v_t, omega=w_t,
+            emergency=(m.idle or not m.fresh), status_text=m.text,
             status_color=(0, 200, 255))
         return d, v_t, w_t
 
@@ -367,6 +503,13 @@ class AGV:
             ('enabled', enabled, LOG_CAT_SYSTEM, lambda p, c: 'Motors ENABLED from dashboard' if c else 'Motors DISABLED from dashboard', 0.0),
             ('mode', mode, LOG_CAT_SYSTEM, lambda p, c: f'Mode: {p} -> {c}', 0.0),
             ('cam', frame_ok, LOG_CAT_CAMERA, lambda p, c: 'Camera frames OK' if c else 'Camera frames stale', 0.5),
+            ('loop', self.motion.snapshot().closed, LOG_CAT_STM32,
+             lambda p, c: 'Wheel control: closed loop (encoder PID)' if c
+             else 'Wheel control: open loop (raw PWM)', 0.8),
+            ('encfault', self.arduino.snapshot().fault_bits, LOG_CAT_STM32,
+             lambda p, c: ('Encoder fault (wheel commanded but not moving): '
+                           f'L={bool(c & 1)} R={bool(c & 2)}') if c
+             else 'Encoder fault cleared', 0.5),
             ('link', link, LOG_CAT_SYSTEM, lambda p, c: 'Arduino link up' if c else 'Arduino link DOWN', 0.5),
             ('obst', vis.obstacle.state, LOG_CAT_CAMERA, lambda p, c: f'Obstacle {p} -> {c} ({vis.obstacle.distance_m:.2f} m)', 0.5),
             ('dir', d.direction.value, LOG_CAT_CAMERA, lambda p, c: f'Line: {p} -> {c}', 0.8),

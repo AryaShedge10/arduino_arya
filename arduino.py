@@ -27,6 +27,7 @@ zero/empty.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import threading
 import time
@@ -37,6 +38,7 @@ import serial
 
 from config import (
     ARDUINO_ACK_TIMEOUT_MS, ARDUINO_BAUD, ARDUINO_CMD_HZ, ARDUINO_PORT,
+    MIN_PWM, PID_KD, PID_KI, PID_KP, TICKS_PER_M, WHEEL_MAX_MPS,
 )
 
 log = logging.getLogger('agv.arduino')
@@ -81,6 +83,32 @@ class ArduinoState:
     encoder_delta_left: int = 0
     encoder_delta_right: int = 0
     firmware_version: str = ''
+    # Firmware v3 (encoders + closed-loop speed). ``speed_ok`` = the ACK
+    # carries the extra fields; ``gains_ok`` = the PID gains were accepted
+    # since the last firmware boot. Closed loop needs both.
+    speed_ok: bool = False
+    gains_ok: bool = False
+    gains_ts: float = 0.0              # monotonic time the G line was last sent
+    meas_ticks_left: float = 0.0       # measured wheel speed, ticks/s
+    meas_ticks_right: float = 0.0
+    tgt_ticks_left: float = 0.0        # speed targets the firmware holds
+    tgt_ticks_right: float = 0.0
+    pwm_target_left: int = 0           # PID output before the slew limiter
+    pwm_target_right: int = 0
+    fw_mode: str = 'P'                 # P = raw PWM, V = closed-loop speed
+    fault_bits: int = 0                # 1 = left, 2 = right encoder not moving
+    enc_zero_left: int = 0             # tick counts at the last "zero" (display only)
+    enc_zero_right: int = 0
+
+
+def gains_command() -> str:
+    """G line with the PID gains converted to firmware units (per tick/s)."""
+    kp = PID_KP / TICKS_PER_M
+    ki = PID_KI / TICKS_PER_M
+    kd = PID_KD / TICKS_PER_M
+    kff = (255.0 - MIN_PWM) / (WHEEL_MAX_MPS * TICKS_PER_M)
+    return 'G%d,%d,%d,%d,%d' % (round(kp * 1000), round(ki * 1000),
+                                round(kd * 1000), round(kff * 1000), round(MIN_PWM))
 
 
 class Arduino:
@@ -180,6 +208,8 @@ class Arduino:
             log.info('[Arduino] port re-opened after disconnect')
             with self._lock:
                 self._state.protocol_ok = False
+                self._state.speed_ok = self._state.gains_ok = False
+                self._state.gains_ts = 0.0
                 self._state.connected = True
                 self._state.last_ack_monotonic = time.monotonic()
                 self._state.last_write_success_monotonic = time.monotonic()
@@ -292,26 +322,65 @@ class Arduino:
                 self._state.last_error = f'{type(exc).__name__}: {exc}'
             return False
 
+    def zero_encoders(self) -> None:
+        """Make the relative tick counters start from 0 here (the firmware keeps
+        counting; only the dashboard's "since zero" numbers move)."""
+        with self._lock:
+            self._state.enc_zero_left = self._state.encoder_left
+            self._state.enc_zero_right = self._state.encoder_right
+
+    def closed_loop_ready(self) -> bool:
+        """Firmware v3 answered and accepted the PID gains."""
+        with self._lock:
+            return (self._state.connected and self._state.protocol_ok
+                    and self._state.speed_ok and self._state.gains_ok)
+
+    def send_speed(self, left_ticks: int, right_ticks: int,
+                   force: bool = False) -> bool:
+        """Send wheel speed targets in encoder ticks/s (closed loop)."""
+        if not self.isOpen():
+            return False
+        left, right = int(left_ticks), int(right_ticks)
+        now = time.monotonic()
+        key = ('V', left, right)
+        if (not force and key == self._last_motor
+                and (now - self._last_motor_monotonic) < 0.1):
+            return True
+        try:
+            with self._io_lock:
+                assert self._serial is not None
+                self._serial.write(f'V{left},{right}\n'.encode('ascii'))
+                self._serial.flush()
+            self._last_motor = key
+            self._last_motor_monotonic = now
+            with self._lock:
+                self._state.last_write_success_monotonic = now
+            return True
+        except (serial.SerialException, OSError, IOError, AssertionError,
+                TypeError, ValueError) as exc:
+            if now - self._last_warn > 2.0:
+                self._last_warn = now
+                log.warning('[Arduino] speed write failed: %s', exc)
+            with self._lock:
+                self._state.connected = False
+                self._state.last_error = f'{type(exc).__name__}: {exc}'
+            return False
+
+    def _send_gains(self) -> None:
+        try:
+            with self._io_lock:
+                if self._serial is not None:
+                    self._serial.write((gains_command() + '\n').encode('ascii'))
+                    self._serial.flush()
+        except (serial.SerialException, OSError, IOError, TypeError, ValueError):
+            pass
+
     # ── state access ─────────────────────────────────────────────────
     def snapshot(self) -> ArduinoState:
         with self._lock:
             # Return a copy so the caller can read it without lock.
-            return ArduinoState(
-                connected=self._state.connected,
-                running=self._state.running,
-                last_ack_monotonic=self._state.last_ack_monotonic,
-                last_cmd=self._state.last_cmd,
-                last_error=self._state.last_error,
-                protocol_ok=self._state.protocol_ok,
-                applied_left=self._state.applied_left,
-                applied_right=self._state.applied_right,
-                recent_replies=list(self._state.recent_replies),
-                encoder_left=self._state.encoder_left,
-                encoder_right=self._state.encoder_right,
-                encoder_delta_left=self._state.encoder_delta_left,
-                encoder_delta_right=self._state.encoder_delta_right,
-                firmware_version=self._state.firmware_version,
-            )
+            return dataclasses.replace(
+                self._state, recent_replies=list(self._state.recent_replies))
 
     def ack_age_ms(self) -> float:
         with self._lock:
@@ -430,22 +499,50 @@ class Arduino:
                 line = repr(raw)
             if not line:
                 continue
+            send_gains = False
             with self._lock:
-                self._state.last_ack_monotonic = time.monotonic()
-                self._state.connected = True
+                st = self._state
+                st.last_ack_monotonic = time.monotonic()
+                st.connected = True
                 if line.startswith('ACK2'):
                     parts = line.split()
-                    self._state.protocol_ok = True
-                    self._state.firmware_version = 'v2'
+                    st.protocol_ok = True
+                    st.firmware_version = 'v2'
                     try:
-                        self._state.applied_left = int(parts[3])
-                        self._state.applied_right = int(parts[4])
+                        st.pwm_target_left = int(parts[1])
+                        st.pwm_target_right = int(parts[2])
+                        st.applied_left = int(parts[3])
+                        st.applied_right = int(parts[4])
                     except (IndexError, ValueError):
                         pass
+                    if len(parts) >= 13:                  # firmware v3
+                        try:
+                            st.meas_ticks_left = float(parts[5])
+                            st.meas_ticks_right = float(parts[6])
+                            st.encoder_left = int(parts[7])
+                            st.encoder_right = int(parts[8])
+                            st.fw_mode = parts[9]
+                            st.tgt_ticks_left = float(parts[10])
+                            st.tgt_ticks_right = float(parts[11])
+                            st.fault_bits = int(parts[12])
+                            st.speed_ok = True
+                            st.firmware_version = 'v3'
+                            now_m = time.monotonic()
+                            if not st.gains_ok and now_m - st.gains_ts > 1.0:
+                                st.gains_ts = now_m      # (re)send until accepted
+                                send_gains = True
+                        except ValueError:
+                            pass
+                elif line.startswith('GAINS ok'):
+                    st.gains_ok = True
                 elif line.startswith('READY'):
-                    self._state.protocol_ok = line.startswith('READY2')
-                self._state.recent_replies.append(line)
-                if len(self._state.recent_replies) > 20:
-                    self._state.recent_replies = (
-                        self._state.recent_replies[-20:])
+                    # (Re)boot: the firmware lost our gains and any V target.
+                    st.protocol_ok = line.startswith('READY2')
+                    st.speed_ok = st.gains_ok = False
+                    st.gains_ts = 0.0
+                st.recent_replies.append(line)
+                if len(st.recent_replies) > 20:
+                    st.recent_replies = st.recent_replies[-20:]
+            if send_gains:
+                self._send_gains()
             backoff = 0.2  # healthy read — reset the backoff

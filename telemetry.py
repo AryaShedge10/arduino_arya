@@ -104,6 +104,38 @@ class TelemetryState:
     left_pwm: int = 0
     right_pwm: int = 0
     vision_ms: float = 0.0
+    # Encoder speed feedback (firmware v3). Speeds in m/s, + = forward.
+    wheel_closed_loop: bool = False        # the Arduino PID is holding speeds
+    closed_loop_wanted: bool = True        # dashboard switch
+    fw_closed_ready: bool = False          # firmware answered + took the gains
+    wheel_tgt_l_mps: float = 0.0
+    wheel_tgt_r_mps: float = 0.0
+    wheel_meas_l_mps: float = 0.0
+    wheel_meas_r_mps: float = 0.0
+    wheel_applied_l: int = 0               # PWM really applied by the Arduino
+    wheel_applied_r: int = 0
+    enc_fault_l: bool = False              # commanded but encoder not moving
+    enc_fault_r: bool = False
+    wheel_max_mps: float = 0.0
+    wheel_diameter_m: float = 0.0
+    enc_rel_l: int = 0                     # ticks since the last "zero"
+    enc_rel_r: int = 0
+    ticks_per_m: float = 0.0
+    # Test recording (dashboard Record tab)
+    rec_on: bool = False
+    rec_session: str = ''
+    rec_frames: int = 0
+    rec_problems: int = 0
+    rec_marks: int = 0
+    rec_dropped: int = 0
+    rec_mb: float = 0.0
+    rec_elapsed_s: float = 0.0
+    rec_free_gb: float = 0.0
+    rec_stop_reason: str = ''
+    rec_format: str = 'v0'
+    rec_mode: str = 'continuous'
+    rec_shard: str = ''
+    rec_ring_s: float = 0.0
     updated_at: float = field(default_factory=time.time)
 
 
