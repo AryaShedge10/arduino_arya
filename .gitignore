@@ -13,3 +13,11 @@ __pycache__/
 build/
 .dashboard_secret
 recordings/
+
+# face recognition / object detection: model weights + enrolled face db.
+# Re-fetched by `face_recognize.py`/`detect_objects.py` `ensure_*` helpers
+# on first use; keeps the repo under ~1MB instead of tracking 45MB+ of
+# ONNX/PyTorch binaries.
+face_recognition/models/
+face_recognition/faces_db.pkl
+yolov8n.pt

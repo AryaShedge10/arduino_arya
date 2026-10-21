@@ -1,0 +1,30 @@
+<div class="tabpanel grid single" id="tab-cam" role="tabpanel" aria-labelledby="tabbtn-cam" hidden>
+      <section class="card" id="cam-card">
+        <h2>USB camera feed <span id="cam-status-chip" class="pill cam-pending" style="margin-left:.5rem">offline</span></h2>
+        <p class="note">
+          Live MJPEG from <code id="cam-device-name">/dev/video0</code> at 640x480.
+          The publisher is started by <code>web.py</code> and serves the latest
+          frame at ~12 fps (server-side throttle; the C270 itself streams at 30 fps).
+        </p>
+        <div id="cam-bar" class="cam-bar" aria-label="Camera live status">
+          <span class="cstat"><span class="dot" id="cam-dot"></span><span class="lbl">Status</span><span id="cam-status" class="v">—</span></span>
+          <span class="cstat"><span class="lbl">Device</span><span id="cam-dev" class="v mono">—</span></span>
+          <span class="cstat"><span class="lbl">Resolution</span><span id="cam-res" class="v mono">—</span></span>
+          <span class="cstat"><span class="lbl">Feed FPS</span><span id="cam-fps" class="v mono">—</span></span>
+          <span class="cstat"><span class="lbl">Frame age</span><span id="cam-age" class="v mono">—</span></span>
+          <span class="cstat"><span class="lbl">Frames</span><span id="cam-frames" class="v mono">—</span></span>
+          <span class="cstat" style="flex:1;min-width:14rem"><span class="lbl">Last error</span><span id="cam-err" class="v">—</span></span>
+        </div>
+        <div id="cam-frame-wrap" class="cam-frame-wrap">
+          <img id="cam-frame" alt="USB camera feed (offline)"
+               src="" data-live="0" />
+          <div id="cam-offline" class="cam-offline-overlay">
+            <div class="cam-offline-card">
+              <strong>Camera offline</strong>
+              <span id="cam-offline-msg">Waiting for the publisher to publish a frame…</span>
+              <code>curl http://&lt;jetson&gt;:5000/cam/status</code>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
