@@ -1,0 +1,33 @@
+/* ── LiDAR tab ─────────────────────────────────────────────────── */
+    .lidar-live { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .5rem .9rem; margin: .5rem 0 1rem; }
+    .lidar-live .stat { display: flex; flex-direction: column; gap: .15rem; }
+    .lidar-live .value { font-size: 1.5rem; font-weight: 700; }
+    .lidar-row { display: flex; align-items: center; gap: .75rem; padding: .2rem 0; }
+    .lidar-row label { min-width: 12rem; }
+    .lidar-row .val { min-width: 5.5rem; text-align: right; font-family: ui-monospace, monospace; }
+    .lidar-row input[type="range"] { flex: 1; accent-color: #60a5fa; }
+    /* LiDAR polar canvas: full-width inside the card, devicescale-aware */
+    #lidar-points { display: block; width: 100%; height: auto; max-width: 1380px;
+                    aspect-ratio: 1380 / 520; margin: .25rem auto .5rem;
+                    background: #0b0f15; border: 1px solid #233046; border-radius: 10px; }
+    /* LiDAR status row: compact pill bar with sensor + connection info */
+    .lidar-status { display:flex; flex-wrap:wrap; gap:.5rem 1.1rem; align-items:center;
+                    margin:.4rem 0 .9rem; padding:.55rem .75rem; background:#0b0f15;
+                    border:1px solid #233046; border-radius:10px; }
+    .lidar-status .lstat { display:inline-flex; align-items:center; gap:.4rem;
+                           font-size:.78rem; line-height:1; min-width:0; }
+    .lidar-status .lbl { color:#93a2b8; text-transform:uppercase; font-weight:600;
+                         letter-spacing:.05em; font-size:.66rem; }
+    .lidar-status .v { color:#e8edf4; font-weight:700;
+                       max-width:18ch; overflow:hidden; text-overflow:ellipsis;
+                       white-space:nowrap; }
+    .lidar-status .v.mono { font-family:ui-monospace,monospace; }
+    .lidar-status .dot { width:.5rem; height:.5rem; border-radius:50%; background:#6b7a90;
+                         box-shadow:0 0 0 2px #19212c; }
+    .lidar-status .dot.live  { background:#4ade80; box-shadow:0 0 8px #4ade8088; }
+    .lidar-status .dot.stale { background:#fbbf24; box-shadow:0 0 8px #fbbf2488; }
+    .lidar-status .dot.dead  { background:#f87171; box-shadow:0 0 8px #f8717188; }
+    #lidar-action-chip.CLEAR { background: #14532d; color: #bbf7d0; }
+    #lidar-action-chip.SLOW { background: #713f12; color: #fde68a; }
+    #lidar-action-chip.ESTOP { background: #7f1d1d; color: #fecaca; }
+    #lidar-action-chip.OFF { background: #1f2937; color: #9ca3af; }

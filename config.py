@@ -57,6 +57,13 @@ CAMERA_HEIGHT = 720
 CAMERA_FPS = 60
 CAMERA_SENSOR_ID = int(os.environ.get('AGV_CAMERA_SENSOR_ID', '0'))
 
+# Dashboard preview camera. Empty (the default) means auto-detect: the web
+# dashboard picks the first non-CSI /dev/video* node it can open. The CSI
+# IMX219 is always skipped — it belongs to the AGV, and Argus cannot open a
+# CaptureSession while another process holds the node. Set this only to pin a
+# specific device (AGV_CAM_PREVIEW_DEV=/dev/video1).
+CAM_PREVIEW_DEV = os.environ.get('AGV_CAM_PREVIEW_DEV', '').strip()
+
 # White balance (same ISP knobs as the AGV project).
 CAMERA_WB_MODE = int(os.environ.get('AGV_CAMERA_WB_MODE', '9'))
 CAMERA_WB_LOCK = os.environ.get(
@@ -318,6 +325,36 @@ DASHBOARD_HOST = os.environ.get('AGV_DASHBOARD_HOST', '0.0.0.0')
 DASHBOARD_HTTP_PORT = int(os.environ.get('AGV_DASHBOARD_PORT', '5000'))
 DASHBOARD_WS_PORT = int(os.environ.get('AGV_DASHBOARD_WS_PORT', '5001'))
 
+# ── LiDAR obstacle safety (RPLIDAR A1/A2 / clones, 360° on /dev/ttyUSB0) ─
+# Defaults give a 0.50 m hard e-stop, 1.00 m slow-down, 0.20 m/s slow speed.
+# Server-side clamps in the API narrow these further; the dashboard can tune
+# the values in the LiDAR tab but cannot take them outside the safe envelope.
+LIDAR_ENABLED = os.environ.get('AGV_LIDAR_ENABLED', '1').lower() in _TRUE
+LIDAR_PORT = os.environ.get('AGV_LIDAR_PORT', '/dev/ttyUSB0')
+LIDAR_BAUD = int(os.environ.get('AGV_LIDAR_BAUD', '115200'))
+# Rolling window of points kept in memory. Must be ≥ 1 motor revolution so
+# the sector min is meaningful (clone spins at ~5 Hz, so 0.5 s is the floor;
+# 1.0 s gives some headroom).
+LIDAR_WINDOW_SEC = float(os.environ.get('AGV_LIDAR_WINDOW_SEC', '1.0'))
+# Range filter: ignore points closer than the housing / lens returns
+# (0.10 m) and farther than the real A2 max (12 m).
+LIDAR_FILTER_MIN_M = float(os.environ.get('AGV_LIDAR_FILTER_MIN_M', '0.10'))
+LIDAR_FILTER_MAX_M = float(os.environ.get('AGV_LIDAR_FILTER_MAX_M', '12.0'))
+# Operator-tunable (clamped in the API):
+LIDAR_STOP_DIST_M = float(os.environ.get('AGV_LIDAR_STOP_DIST_M', '0.50'))
+LIDAR_SLOW_DIST_M = float(os.environ.get('AGV_LIDAR_SLOW_DIST_M', '1.00'))
+LIDAR_SLOW_V_MPS = float(os.environ.get('AGV_LIDAR_SLOW_V_MPS', '0.20'))
+LIDAR_STALE_MS = int(os.environ.get('AGV_LIDAR_STALE_MS', '200'))
+LIDAR_SECTOR_DEG = int(os.environ.get('AGV_LIDAR_SECTOR_DEG', '30'))
+
+
 # ── Logging ─────────────────────────────────────────────────────────────
 LOG_FILE = os.environ.get(
     'AGV_LOG_FILE', os.path.join(TELEMETRY_DIR, 'agv.log'))
+# Per-tick live JSONL stream that feeds the dashboard "Logs" tab live panel.
+# Written by frame_log.FrameLog, one JSON object per line. Daily rotation is
+# the FrameLog writer's job; these constants only pick the directory + rate.
+LIVE_FRAMES_ENABLED = os.environ.get('AGV_LIVE_FRAMES_ENABLED', '1').lower() in _TRUE
+LIVE_FRAMES_HZ = float(os.environ.get('AGV_LIVE_FRAMES_HZ', '5'))
+LIVE_FRAMES_DIR = os.environ.get('AGV_LIVE_FRAMES_DIR',
+                                 os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs'))

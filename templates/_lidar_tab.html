@@ -1,0 +1,56 @@
+<div class="tabpanel grid single" id="tab-lidar" role="tabpanel" aria-labelledby="tabbtn-lidar" hidden>
+      <section class="card" id="lidar-card">
+        <h2>LiDAR obstacle safety <span id="lidar-action-chip" class="pill" style="margin-left:.5rem">—</span></h2>
+        <p class="note">
+          Three zones: <strong>stop</strong> below the first distance (hard e-stop),
+          <strong>slow</strong> below the second (speed capped), <strong>clear</strong> beyond it.
+          A sensor that goes stale, jams or drops off USB stops the rover &mdash; we do not
+          drive blind. Turning safety OFF needs the password.
+        </p>
+        <div id="lidar-status-bar" class="lidar-status" aria-label="LiDAR live status">
+          <span class="lstat"><span class="dot" id="lstat-dot"></span><span class="lbl">Sensor</span><span id="lstat-sensor" class="v">—</span></span>
+          <span class="lstat"><span class="lbl">Port</span><span id="lstat-port" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Baud</span><span id="lstat-baud" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Sectors</span><span id="lstat-sectors" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Front min</span><span id="lstat-front" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Action</span><span id="lstat-action" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Sample age</span><span id="lstat-age" class="v mono">—</span></span>
+          <span class="lstat"><span class="lbl">Points / 2&nbsp;s</span><span id="lstat-pts" class="v mono">—</span></span>
+          <span class="lstat" style="flex:1;min-width:14rem"><span class="lbl">Reason</span><span id="lstat-reason" class="v">—</span></span>
+        </div>
+        <div id="lidar-live" class="lidar-live">
+          <div class="stat"><span class="label">Nearest ahead</span><span id="lidar-min-front" class="value mono">—</span></div>
+          <div class="stat"><span class="label">Action right now</span><span id="lidar-act-now" class="value mono">—</span></div>
+          <div class="stat"><span class="label">Sample age</span><span id="lidar-age" class="value mono">—</span></div>
+          <div class="stat"><span class="label">Zone width</span><span id="lidar-zone-w" class="value mono">—</span></div>
+        </div>
+        <canvas id="lidar-points" width="1380" height="520" aria-label="Raw LiDAR points, last 2 seconds"></canvas>
+        <div class="legend" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+          <span id="lidar-legend">0&deg; forward &middot; clockwise &middot; ring = metres</span>
+          <span class="rowline" style="gap:.5rem">
+            <label for="lidar-range" class="label" style="margin:0">Range</label>
+            <input id="lidar-range" type="range" min="3" max="12" step="1" value="9"
+                   style="width:7.5rem;accent-color:#60a5fa">
+            <span id="lidar-range-v" class="value mono" style="font-size:.85rem;min-width:3rem;text-align:right">9 m</span>
+            <label for="lidar-decay" class="label" style="margin:0">Trail</label>
+            <input id="lidar-decay" type="range" min="0.2" max="3.0" step="0.1" value="2.0"
+                   style="width:9rem;accent-color:#60a5fa">
+            <span id="lidar-decay-v" class="value mono" style="font-size:.85rem;min-width:3.6rem;text-align:right">2.0 s</span>
+          </span>
+        </div>
+        <label class="applied" style="display:flex;gap:.6rem;align-items:center;cursor:pointer">
+          <input type="checkbox" id="lidar-toggle" checked>
+          <span id="lidar-label">LiDAR obstacle safety armed</span>
+        </label>
+      </section>
+
+      <section class="card" id="lidar-zoom-card">
+        <h2>Zones</h2>
+        <p class="note">Values are clamped on the server; the slider range only shows what a value will become.</p>
+        <div id="lidar-sliders"></div>
+        <div style="display:flex;gap:.6rem;align-items:center;margin-top:.75rem;flex-wrap:wrap">
+          <button type="button" id="lidar-apply">Apply zones</button>
+          <span id="lidar-apply-msg" class="note"></span>
+        </div>
+      </section>
+    </div>

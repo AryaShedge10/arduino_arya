@@ -199,6 +199,8 @@
     .tabdot { display: none; position: absolute; top: .45rem; right: .5rem; width: .5rem; height: .5rem; border-radius: 50%; background: #f87171; box-shadow: 0 0 6px #f87171aa; }
     .tabdot.on { display: block; } .tabdot.warn { background: #fbbf24; box-shadow: 0 0 6px #fbbf24aa; }
     .tabpanel { animation: tab-in .15s ease-out; }
+    {% include '_lidar_tab.css' %}
+    {% include '_cam_tab.css' %}
     @keyframes tab-in { from { opacity: 0; } to { opacity: 1; } }
     .tabdot.rec { background: #ef4444; animation: recblink 1s steps(2, start) infinite; }
     @keyframes recblink { to { visibility: hidden; } }
@@ -232,6 +234,25 @@
     .dock-stats .value { font-size: 1rem; }
     @media (max-width: 760px) { .dock-body { grid-template-columns: 1fr; } }
     @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .video { min-height: 180px; } .log-grid { grid-template-columns: 1fr; } }
+    /* Logs tab: live per-tick + recording timeline */
+    .card-actions { display: flex; align-items: center; gap: .8rem; padding: .55rem 1rem; border-bottom: 1px solid #293342; }
+    .card-actions label, .card-actions button, .card-actions a { font: .78rem/1 ui-monospace, monospace; color: #e8edf4; }
+    .card-actions button, .card-actions a { padding: .3rem .7rem; background: #344054; color: #e8edf4; border: 0; border-radius: 6px; cursor: pointer; text-decoration: none; }
+    .card-actions button:hover, .card-actions a:hover { background: #475569; }
+    .liveline-stats { display: flex; flex-wrap: wrap; gap: .45rem 1rem; padding: .6rem 1rem; font: .75rem/1.4 ui-monospace, monospace; color: #aebbd0; border-bottom: 1px solid #293342; }
+    .liveline-stats b { color: #e8edf4; margin-left: .25rem; font-weight: 600; }
+    .liveline-stats span { background: #111821; border: 1px solid #293342; border-radius: 4px; padding: .15rem .5rem; }
+    .liveline-sparks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; padding: .6rem 1rem; }
+    .liveline-sparks > div { background: #111821; border: 1px solid #293342; border-radius: 6px; padding: .4rem .6rem; }
+    .liveline-sparks label { display: block; font: .7rem/1 ui-monospace, monospace; color: #6b7a90; margin-bottom: .2rem; text-transform: uppercase; letter-spacing: .08em; }
+    .liveline-sparks canvas { display: block; width: 100%; height: 44px; }
+    .errors-list { list-style: none; margin: 0; padding: .4rem 1rem .7rem; font: .78rem/1.4 ui-monospace, monospace; max-height: 120px; overflow: auto; }
+    .errors-list li { color: #fca5a5; padding: .1rem 0; }
+    .timeline-controls { display: flex; align-items: center; gap: .8rem; padding: .6rem 1rem; border-bottom: 1px solid #293342; }
+    .timeline-controls input[type="range"] { flex: 1; }
+    .timeline-controls a { font: .78rem/1 ui-monospace, monospace; color: #93c5fd; text-decoration: none; }
+    .timeline-controls a:hover { text-decoration: underline; }
+    #timeline-empty { padding: .6rem 1rem; color: #6b7a90; font: .85rem/1.4 ui-monospace, monospace; }
   </style>
 </head>
 <body>
@@ -258,6 +279,8 @@
     <div class="chip" id="sum-arduino"><span class="k">Arduino</span><span class="v">—</span></div>
     <div class="chip" id="sum-obst"><span class="k">Obstacle</span><span class="v">—</span></div>
     <div class="chip" id="sum-cam"><span class="k">Camera</span><span class="v">—</span></div>
+    <div class="chip" id="sum-usbcam"><span class="k">USB cam</span><span class="v">—</span></div>
+    <div class="chip" id="sum-lidar"><span class="k">LiDAR</span><span class="v">—</span></div>
     <div class="chip" id="sum-rec"><span class="k">Recording</span><span class="v"><button type="button" id="rec-quick" class="mini" style="padding:.2rem .6rem;font-size:.75rem">● Record</button> <button type="button" id="rec-quick-mark" class="mini go" style="padding:.2rem .6rem;font-size:.75rem" hidden>⚑ Mark</button></span></div>
   </div>
   <dialog id="login-dlg">
@@ -367,6 +390,8 @@
       <button type="button" role="tab" data-tab="chassis" id="tabbtn-chassis" aria-controls="tab-chassis" aria-selected="false">Chassis &amp; encoders<i class="tabdot" id="dot-chassis"></i></button>
       <button type="button" role="tab" data-tab="test" id="tabbtn-test" aria-controls="tab-test" aria-selected="false">Motor test</button>
       <button type="button" role="tab" data-tab="record" id="tabbtn-record" aria-controls="tab-record" aria-selected="false">Record<i class="tabdot rec" id="dot-record"></i></button>
+      <button type="button" role="tab" data-tab="lidar" id="tabbtn-lidar" aria-controls="tab-lidar" aria-selected="false">LiDAR<i class="tabdot" id="dot-lidar"></i></button>
+      <button type="button" role="tab" data-tab="cam" id="tabbtn-cam" aria-controls="tab-cam" aria-selected="false">Camera<i class="tabdot" id="dot-cam"></i></button>
       <button type="button" role="tab" data-tab="logs" id="tabbtn-logs" aria-controls="tab-logs" aria-selected="false">Logs &amp; system<i class="tabdot" id="dot-logs"></i></button>
     </nav>
     <div class="tabpanel grid" id="tab-drive" role="tabpanel" aria-labelledby="tabbtn-drive">
@@ -597,6 +622,8 @@
         </div>
       </section>
     </div>
+    {% include '_lidar_tab.html' %}
+    {% include '_cam_tab.html' %}
     <div class="tabpanel grid" id="tab-logs" role="tabpanel" aria-labelledby="tabbtn-logs" hidden>
       <section class="card">
         <h2>Sensor probes · startup wiring check</h2>
@@ -639,6 +666,67 @@
             <ul class="log-list" id="log-stm32" aria-live="polite"></ul>
           </article>
         </div>
+      </section>
+
+      <section class="card" id="liveline-card">
+        <header>
+          <h2>Live per-tick · last 2 min @ 5 Hz</h2>
+          <div class="card-actions">
+            <label><input type="checkbox" id="liveline-pause"> Pause</label>
+            <button type="button" id="liveline-download">Download last 2 min</button>
+          </div>
+        </header>
+        <div class="liveline-stats">
+          <span>mode <b id="liveline-mode">—</b></span>
+          <span>line <b id="liveline-found">—</b></span>
+          <span>offset <b id="liveline-offset">—</b> m</span>
+          <span>angle <b id="liveline-angle">—</b>°</span>
+          <span>obstacle <b id="liveline-obst">—</b></span>
+          <span>v/ω <b id="liveline-vw">—</b></span>
+          <span>enc L/R <b id="liveline-enc">—</b></span>
+          <span>PWM L/R <b id="liveline-pwm">—</b></span>
+          <span>boost <b id="liveline-boost">—</b></span>
+          <span>latency <b id="liveline-latency">—</b> ms</span>
+          <span>errors <b id="liveline-errors">—</b></span>
+          <span>rows <b id="liveline-rows">0</b></span>
+        </div>
+        <div class="liveline-sparks">
+          <div><label>offset_m</label><canvas id="liveline-spark-offset" width="240" height="44"></canvas></div>
+          <div><label>v (m/s units)</label><canvas id="liveline-spark-v" width="240" height="44"></canvas></div>
+          <div><label>ω</label><canvas id="liveline-spark-omega" width="240" height="44"></canvas></div>
+          <div><label>latency_ms</label><canvas id="liveline-spark-lat" width="240" height="44"></canvas></div>
+        </div>
+        <ul id="liveline-errors-list" class="errors-list"></ul>
+      </section>
+
+      <section class="card" id="timeline-card">
+        <header>
+          <h2>Latest recording timeline</h2>
+          <div class="card-actions">
+            <span id="timeline-session-label">—</span>
+            <button type="button" id="timeline-refresh">Refresh</button>
+            <a id="timeline-csv" download>Download CSV</a>
+          </div>
+        </header>
+        <div class="timeline-controls">
+          <input type="range" id="timeline-scrub" min="0" max="0" value="0" step="1">
+          <span id="timeline-frame-label">frame 0 / 0</span>
+          <a id="timeline-open-frame" target="_blank" rel="noopener">Open frame at this point →</a>
+        </div>
+        <div class="liveline-stats">
+          <span>mode <b id="timeline-mode">—</b></span>
+          <span>line <b id="timeline-found">—</b></span>
+          <span>offset <b id="timeline-offset">—</b> m</span>
+          <span>angle <b id="timeline-angle">—</b>°</span>
+          <span>obstacle <b id="timeline-obst">—</b></span>
+          <span>v/ω <b id="timeline-vw">—</b></span>
+          <span>enc L/R <b id="timeline-enc">—</b></span>
+          <span>PWM L/R <b id="timeline-pwm">—</b></span>
+          <span>boost <b id="timeline-boost">—</b></span>
+          <span>latency <b id="timeline-latency">—</b> ms</span>
+          <span>errors <b id="timeline-errors">—</b></span>
+        </div>
+        <p class="hint" id="timeline-empty" hidden>No recording sessions yet. Start one from the Record tab.</p>
       </section>
     </div>
   </main>
@@ -871,6 +959,7 @@
       updateTabDots(data);
       updateRecord(data);
       updateObstacleSwitch(data.obstacle_enforced);
+      updateLidarLive(data);
       driveMode = data.mode === 'manual' ? 'manual' : 'auto';
       updateManualUi();
       setText('direction', data.camera_direction);
@@ -1088,6 +1177,9 @@
         ? 'Obstacle stop IGNORED (bench test only)' : 'Obstacle stop enforced (camera)';
       $('obst-label').style.color = enforced === false ? '#f87171' : '';
     }
+
+    {% include '_lidar_tab.js' %}
+    {% include '_cam_tab.js' %}
 
 
     // ── Chassis diagram · wheel speed · tests ────────────────────────
@@ -1432,6 +1524,36 @@
       const ob = d.obstacle_state || 'CLEAR';
       chip('sum-obst', d.obstacle_enforced === false ? 'IGNORED' : ob, d.obstacle_enforced === false ? 'warn' : ob === 'CLEAR' ? 'good' : 'bad');
       chip('sum-cam', d.camera_connected ? 'OK' : 'NONE', d.camera_connected ? 'good' : 'bad');
+      // LiDAR is the sensor that can actually stop the rover, so the strip
+      // carries the verdict the control loop is acting on — not just a link
+      // flag. Colour follows the three-zone rule used everywhere else:
+      // ESTOP red, SLOW amber, CLEAR green, OFF/DOWN never look safe.
+      let lidTxt, lidCls;
+      if (d.lidar_enabled === false) { lidTxt = 'OFF'; lidCls = 'warn'; }
+      else if (!d.lidar_connected) { lidTxt = 'DOWN'; lidCls = 'bad'; }
+      else {
+        const act = d.lidar_action || 'CLEAR';
+        lidCls = act === 'ESTOP' ? 'bad' : act === 'SLOW' ? 'warn' : 'good';
+        lidTxt = act;
+        // Front distance alongside the verdict: "is it about to stop?"
+        // answered without opening the tab. Only when it is a real reading.
+        if (d.lidar_min_front_m != null && lidCls !== 'bad')
+          lidTxt += ' · ' + d.lidar_min_front_m.toFixed(2) + ' m';
+      }
+      chip('sum-lidar', lidTxt, lidCls);
+      // Full detail on hover — the strip stays one line, the LiDAR tab has the rest.
+      $('sum-lidar').title = [
+        (d.lidar_port || '') + (d.lidar_baud ? ' @ ' + d.lidar_baud + ' baud' : ''),
+        d.lidar_estop_reason ? 'reason: ' + d.lidar_estop_reason : '',
+        d.lidar_error ? 'error: ' + d.lidar_error : '',
+        'sample age ' + (d.lidar_age_ms == null ? '—' : d.lidar_age_ms + ' ms'),
+      ].filter(Boolean).join(' · ');
+      // Two cameras report in this strip: the AGV pipeline's own sensor
+      // (this chip, from telemetry) and the USB preview (sum-usbcam, from
+      // /cam/status in _cam_tab.js). Say which sensor is which in the
+      // tooltip — "NONE" on its own doesn't say which one is dead.
+      $('sum-cam').title = 'AGV camera · ' + (d.camera_backend || 'unknown backend') +
+        (d.camera_connected ? ' · ' + (d.camera_direction || '') : ' · not streaming');
     }
     // cards fold on a click of their title; the choice is remembered
     (function collapsibleCards() {
@@ -1456,7 +1578,7 @@
     // Drive (camera, vehicle state, speed, manual) -> Chassis & encoders ->
     // Motor test -> Logs & system. The choice is kept in the URL hash and in
     // localStorage, so a reload comes back to the same tab.
-    const TAB_IDS = ['drive', 'chassis', 'test', 'record', 'logs'];
+    const TAB_IDS = ['drive', 'chassis', 'test', 'record', 'lidar', 'cam', 'logs'];
     function showTab(id, focus) {
       if (!TAB_IDS.includes(id)) id = 'drive';
       for (const t of TAB_IDS) {
@@ -1470,6 +1592,7 @@
       try { localStorage.setItem('agv-tab', id); } catch (e) {}
       if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
       if (id === 'chassis' || id === 'test') drawChart();
+      if (id === 'lidar') loadLidarConfig();
     }
     $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) showTab(b.dataset.tab); });
     $('tabs').addEventListener('keydown', (e) => {
@@ -1680,6 +1803,243 @@
     fetch('/status', { cache: 'no-store' })
       .then(r => r.json()).then(apply).catch(() => {});
     startWebSocket();
+
+    // ── Logs tab: live per-tick JSONL stream + latest recording timeline ──
+    // These are independent of the WebSocket loop (cursor-based HTTP polling),
+    // so they only spin up work when the Logs tab is visible.
+    const LogsPanels = (() => {
+      // 120 s buffer at ~5 Hz = up to ~600 rows
+      const BUFFER_S = 120;
+      const POLL_MS = 1000;
+      const SPARK_W = 240;
+      const SPARK_H = 44;
+
+      function fmt(v, unit = '') {
+        if (v === null || v === undefined || Number.isNaN(v)) return '—';
+        if (typeof v === 'number') {
+          if (Math.abs(v) >= 100) return v.toFixed(0) + unit;
+          if (Math.abs(v) >= 10) return v.toFixed(1) + unit;
+          return v.toFixed(2) + unit;
+        }
+        return String(v);
+      }
+      function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      }
+
+      // ── Livelog: tail /api/livelog?since=<lastT> ──────────────────────
+      const Livelog = (() => {
+        const state = { buffer: [], lastSinceT: 0, paused: false, timer: null };
+
+        function ingest(rows) {
+          if (!rows.length) return;
+          for (const r of rows) {
+            if (state.lastSinceT === 0 || (r.t && r.t > state.lastSinceT)) {
+              state.lastSinceT = r.t || state.lastSinceT;
+            }
+            state.buffer.push(r);
+          }
+          const cutoff = (state.buffer[state.buffer.length - 1]?.t || 0) - BUFFER_S;
+          while (state.buffer.length && (state.buffer[0].t || 0) < cutoff) {
+            state.buffer.shift();
+          }
+        }
+
+        function renderStats() {
+          const last = state.buffer[state.buffer.length - 1];
+          if (!last) return;
+          setText('liveline-mode', last.mode ?? '—');
+          setText('liveline-found', last.found === true ? 'YES' : last.found === false ? 'NO' : '—');
+          setText('liveline-offset', fmt(last.offset_m, ''));
+          setText('liveline-angle', fmt(last.angle_deg, '°'));
+          setText('liveline-obst', last.obst_raw ?? '—');
+          setText('liveline-vw', `${fmt(last.v)} / ${fmt(last.omega)}`);
+          setText('liveline-enc', `${fmt(last.ticks_l)} / ${fmt(last.ticks_r)}`);
+          setText('liveline-pwm', `${fmt(last.applied_l)} / ${fmt(last.applied_r)}`);
+          // steer_boost is not in build_telem_row; show "—" when absent.
+          setText('liveline-boost', '—');
+          setText('liveline-latency', fmt(last.latency_ms, ''));
+          setText('liveline-errors', (last.errors || []).join(',') || '—');
+          setText('liveline-rows', String(state.buffer.length));
+          drawSparks();
+          renderErrors();
+        }
+
+        function renderErrors() {
+          const ul = document.getElementById('liveline-errors-list');
+          if (!ul) return;
+          const recent = state.buffer.slice(-30).reverse().filter(r => r.errors && r.errors.length);
+          ul.innerHTML = recent.map(r => `<li>${(r.t ? new Date(r.t * 1000).toLocaleTimeString() : '?')} — ${(r.errors || []).join(', ')}</li>`).join('');
+        }
+
+        function drawSparks() {
+          drawSpark('liveline-spark-offset', r => r.offset_m, [-0.2, 0.2], '#60a5fa');
+          drawSpark('liveline-spark-v', r => r.v, null, '#34d399');
+          drawSpark('liveline-spark-omega', r => r.omega, null, '#fbbf24');
+          drawSpark('liveline-spark-lat', r => r.latency_ms, [0, 200], '#f87171');
+        }
+
+        function drawSpark(id, acc, range, color) {
+          const cv = document.getElementById(id);
+          if (!cv || state.buffer.length < 2) return;
+          const ctx = cv.getContext('2d');
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          const vals = state.buffer.map(acc).filter(v => typeof v === 'number');
+          if (!vals.length) return;
+          let lo = range ? range[0] : Math.min(...vals);
+          let hi = range ? range[1] : Math.max(...vals);
+          if (lo === hi) { hi = lo + 1; }
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          vals.forEach((v, i) => {
+            const x = (i / (vals.length - 1)) * (cv.width - 2) + 1;
+            const y = cv.height - 2 - ((v - lo) / (hi - lo)) * (cv.height - 4);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.stroke();
+          ctx.strokeStyle = '#293342';
+          ctx.beginPath();
+          ctx.moveTo(0, cv.height / 2);
+          ctx.lineTo(cv.width, cv.height / 2);
+          ctx.stroke();
+        }
+
+        async function poll() {
+          if (state.paused) return;
+          try {
+            const url = `/api/livelog?since=${Math.floor(state.lastSinceT * 1000)}`;
+            const r = await fetch(url, { cache: 'no-store' });
+            if (!r.ok) return;
+            const text = await r.text();
+            const rows = [];
+            for (const line of text.split('\n')) {
+              const l = line.trim();
+              if (!l) continue;
+              try { rows.push(JSON.parse(l)); } catch {}
+            }
+            ingest(rows);
+            renderStats();
+          } catch (e) { /* network blip */ }
+        }
+
+        function download() {
+          const blob = new Blob([state.buffer.map(r => JSON.stringify(r)).join('\n') + '\n'],
+                                { type: 'application/x-ndjson' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+          a.download = `liveline-${stamp}.jsonl`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        function init() {
+          const pauseEl = document.getElementById('liveline-pause');
+          if (pauseEl) pauseEl.addEventListener('change', () => { state.paused = pauseEl.checked; });
+          const dl = document.getElementById('liveline-download');
+          if (dl) dl.addEventListener('click', download);
+          state.timer = setInterval(poll, POLL_MS);
+          poll();
+        }
+
+        return { init, _state: state };
+      })();
+
+      // ── Timeline: scrub over the latest recording session ─────────────
+      const Timeline = (() => {
+        const state = { session: null, rows: [], scrubIdx: 0 };
+
+        async function load() {
+          try {
+            const r = await fetch('/api/sessions/latest', { cache: 'no-store' });
+            if (!r.ok) {
+              document.getElementById('timeline-empty').hidden = false;
+              return;
+            }
+            state.session = await r.json();
+            const tl = await fetch(`/api/sessions/${encodeURIComponent(state.session.name)}/timeline`,
+                                  { cache: 'no-store' });
+            if (!tl.ok) return;
+            const data = await tl.json();
+            state.rows = data.rows || [];
+            const scrub = document.getElementById('timeline-scrub');
+            scrub.max = String(Math.max(0, state.rows.length - 1));
+            scrub.value = String(state.rows.length - 1);
+            document.getElementById('timeline-csv').href =
+              `/api/sessions/${encodeURIComponent(state.session.name)}/timeline.csv`;
+            const total = state.rows.length;
+            const dur = (state.rows[total - 1]?.t && state.rows[0]?.t)
+              ? (state.rows[total - 1].t - state.rows[0].t).toFixed(1) + ' s' : '—';
+            document.getElementById('timeline-session-label').textContent =
+              `${state.session.name} · ${total} frames · ${dur}`;
+            onScrub();
+          } catch (e) { /* network blip */ }
+        }
+
+        function onScrub() {
+          const i = parseInt(document.getElementById('timeline-scrub').value, 10) || 0;
+          state.scrubIdx = i;
+          const r = state.rows[i];
+          document.getElementById('timeline-frame-label').textContent =
+            `frame ${i} / ${state.rows.length - 1}`;
+          if (!r) return;
+          const w = r.wheels || {}, enc = r.enc || {}, dec = r.decision || {},
+                line = r.line || {}, obst = r.obstacle || {};
+          setText('timeline-mode', r.mode ?? '—');
+          setText('timeline-found', line.found === true ? 'YES' : line.found === false ? 'NO' : '—');
+          setText('timeline-offset', fmt(line.offset_m, ''));
+          setText('timeline-angle', fmt(line.angle_deg, '°'));
+          setText('timeline-obst', obst.raw ?? obst.state ?? '—');
+          setText('timeline-vw', `${fmt(dec.v)} / ${fmt(dec.omega)}`);
+          setText('timeline-enc', `${fmt(enc.ticks_l)} / ${fmt(enc.ticks_r)}`);
+          setText('timeline-pwm', `${fmt(w.applied_l)} / ${fmt(w.applied_r)}`);
+          setText('timeline-boost', fmt(dec.boost));
+          setText('timeline-latency', '—');
+          setText('timeline-errors', (enc.fault_bits && enc.fault_bits !== 0)
+            ? `bits=${enc.fault_bits}` : '—');
+          const open = document.getElementById('timeline-open-frame');
+          if (open) {
+            open.href = `/review/${encodeURIComponent(state.session.name)}#i=${i}`;
+          }
+        }
+
+        function init() {
+          const ref = document.getElementById('timeline-refresh');
+          if (ref) ref.addEventListener('click', load);
+          const scrub = document.getElementById('timeline-scrub');
+          if (scrub) scrub.addEventListener('input', onScrub);
+          load();
+        }
+
+        return { init };
+      })();
+
+      function init() {
+        Livelog.init();
+        Timeline.init();
+      }
+      return { init };
+    })();
+
+    // Only spin up the panels when the Logs tab is first shown — avoid
+    // burning background polls while the user is on Drive / Chassis / Record.
+    const _origShowTab = typeof showTab === 'function' ? showTab : null;
+    let _logsInited = false;
+    function _ensureLogsInited() {
+      if (_logsInited) return;
+      _logsInited = true;
+      try { LogsPanels.init(); } catch (e) { console.error('LogsPanels init failed', e); }
+    }
+    document.getElementById('tabbtn-logs')?.addEventListener('click', _ensureLogsInited);
+    // Also pre-init if the tab is already the active one (deep link).
+    if (document.getElementById('tabbtn-logs')?.getAttribute('aria-selected') === 'true') {
+      _ensureLogsInited();
+    }
   </script>
 </body>
 </html>

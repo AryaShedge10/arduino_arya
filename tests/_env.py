@@ -7,6 +7,7 @@ the real recordings, /tmp/agv-dashboard or ports 5000/5001.
 import os
 import sys
 import tempfile
+import time
 import traceback
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,10 +30,30 @@ os.environ['AGV_LOG_FILE'] = os.path.join(DASH_DIR, 'agv.log')
 os.environ['AGV_DASHBOARD_PASSWORD'] = 'testpw'
 os.environ['AGV_CAMERA_BACKEND'] = 'fake'
 os.environ['AGV_ARDUINO_PORT'] = '/dev/agv-test-none'
+# The LiDAR is real hardware on /dev/ttyUSB0; point it at a port that
+# cannot exist so no test can ever spin up the sensor head.
+os.environ['AGV_LIDAR_PORT'] = '/dev/agv-test-none'
 # Default is auth ON; plain-server tests assume open endpoints. Tests that exercise
 # the real defaults (test_e2e, enforced test_review_ui) pop this from their spawn env.
 os.environ.setdefault('AGV_REC_REQUIRE_AUTH', '0')
 os.environ.setdefault('AGV_CONTROL_FILE', os.path.join(DASH_DIR, 'control.json'))
+
+
+def poll(fn, timeout: float = 5.0, interval: float = 0.15):
+    """Call ``fn`` until it returns something truthy or ``timeout`` passes.
+
+    Returns the first truthy value, or None on timeout. Use this instead
+    of a bare sleep when waiting on something the server or the browser
+    will eventually produce.
+    """
+    end = time.monotonic() + timeout
+    while True:
+        value = fn()
+        if value:
+            return value
+        if time.monotonic() >= end:
+            return None
+        time.sleep(interval)
 
 
 def run_tests(ns: dict) -> None:

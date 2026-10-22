@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import glob
 import hmac
 import json
 import logging
@@ -31,21 +32,97 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request, send_file
+from flask import Flask, Response, jsonify, make_response, render_template, request, send_file
 
 from config import (
-    DASHBOARD_HOST, DASHBOARD_HTTP_PORT, DASHBOARD_WS_PORT, TELEMETRY_DIR,
+    CAM_PREVIEW_DEV, DASHBOARD_HOST, DASHBOARD_HTTP_PORT, DASHBOARD_WS_PORT,
+    TELEMETRY_DIR,
 )
 from control_state import (
-    MANUAL_STALE_S, ControlReader, clamp_speed, read_state, write_state,
+    LIDAR_CLAMPS, LIDAR_LIMITS, LIDAR_SLOW_GAP_M, MANUAL_STALE_S, ControlReader,
+    clamp_speed, read_state, write_state,
 )
 import recording_io
 from config import REC_DEFAULT_RATE_HZ, REC_DIR, SPEED_MAX_PCT, SPEED_MIN_PCT
+from config import LIVE_FRAMES_DIR
+from cam.publisher import CamPublisher
 
 log = logging.getLogger('agv.web')
+# web.py never configures logging — the AGV process does, for its own logger,
+# on its own stdout. Without a handler every message logged here is silently
+# dropped: sign-ins, motor toggles, mode changes, the generated-password
+# warning, and the camera decision below. Attach one, and stop propagation so
+# it is emitted exactly once.
+if not log.handlers:
+    _web_log_handler = logging.StreamHandler()
+    _web_log_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s [%(name)s] %(message)s'))
+    log.addHandler(_web_log_handler)
+    log.propagate = False
+# Without this the logger inherits WARNING from the unconfigured root and
+# every log.info() below is discarded before the handler ever sees it.
+log.setLevel(logging.INFO)
 
 STATUS_PATH = Path(TELEMETRY_DIR) / 'status.json'
 FRAME_PATH = Path(TELEMETRY_DIR) / 'frame.jpg'
+POINTS_PATH = Path(TELEMETRY_DIR) / 'points.json'
+
+# Background capture thread for a non-CSI camera (the C270 USB webcam),
+# started by the dashboard on import so /cam/mjpeg is hot whenever Flask is
+# up. The publisher survives an unplugged camera and resurfaces the feed the
+# moment the device re-enumerates.
+def _video_index(dev: str) -> int:
+    m = re.search(r'(\d+)$', dev)
+    return int(m.group(1)) if m else 0
+
+
+def _detect_preview_cam() -> str:
+    """First non-CSI camera node that actually delivers frames.
+
+    Never returns a tegra-capture-vi node. That sensor belongs to the AGV:
+    Argus cannot create a CaptureSession while another process holds the node,
+    and the AGV then reports NO_FRAMES with a dead line follower. Device
+    numbering moves with whatever is plugged in — the IMX219 claims /dev/video0
+    and pushes the USB webcam to /dev/video1 — so resolve by identity, not by
+    a hardcoded path.
+
+    Returns '' when nothing suitable is present; CamPublisher then reports the
+    preview offline and retries every 5 s rather than stealing the CSI sensor.
+    """
+    if CAM_PREVIEW_DEV:
+        log.info('preview camera pinned to %s', CAM_PREVIEW_DEV)
+        return CAM_PREVIEW_DEV
+    import cv2
+    for dev in sorted(glob.glob('/dev/video*'), key=_video_index):
+        try:
+            name = Path('/sys/class/video4linux') / Path(dev).name / 'name'
+            name = name.read_text().strip()
+        except OSError:
+            continue
+        if any(k in name for k in ('tegra-capture-vi', 'vi-output', 'imx219')):
+            continue                       # CSI — the AGV owns it
+        cap = cv2.VideoCapture(dev, cv2.CAP_V4L2)
+        if not cap.isOpened():
+            continue
+        # A webcam exposes a capture node plus a metadata node under the same
+        # name; only the capture node yields frames, so verify before claiming it.
+        ok, deadline = False, time.monotonic() + 1.0
+        while time.monotonic() < deadline:
+            got, _ = cap.read()
+            if got:
+                ok = True
+                break
+        cap.release()
+        if ok:
+            log.info('preview camera: %s (%s)', dev, name)
+            return dev
+    log.warning('no non-CSI camera found; dashboard preview stays offline')
+    return ''
+
+
+CAM_DEV = _detect_preview_cam()
+CAM_PUBLISHER = CamPublisher(device=CAM_DEV, width=640, height=480, target_fps=12)
+CAM_PUBLISHER.start()
 
 # ─────────────────────────────────────────────────────────────────
 # HTTP layer (Flask)
@@ -86,6 +163,18 @@ def _read_status() -> dict:
         'lidar_connected': None,
         'lidar_error': None,
         'lidar_distance_mm': 0,
+        'lidar_min_front_m': None,
+        'lidar_sector_mins': None,
+        'lidar_age_ms': None,
+        'lidar_estop_reason': '',
+        'lidar_action': 'OFF',
+        'lidar_stop_dist_m': 0.0,
+        'lidar_slow_dist_m': 0.0,
+        'lidar_slow_v_mps': 0.0,
+        'lidar_enabled': False,
+        'lidar_port': '',
+        'lidar_baud': 0,
+        'lidar_sector_deg': 0,
         'final_command': 'S',
         'decision_reason': '',
         'updated_at': None,
@@ -119,6 +208,24 @@ def _read_status() -> dict:
         return payload
     except (OSError, ValueError):
         return fallback
+
+
+@flask_app.route('/points.json', methods=['GET'])
+def points_json():
+    """Raw 2 s rolling window of LiDAR points for the dashboard's
+    polar overlay. Same atomic-write convention as status.json: the
+    writer publishes ``points.json.tmp`` and then ``os.replace()``s it,
+    so readers never see a partial file."""
+    try:
+        with POINTS_PATH.open('r', encoding='utf-8') as fh:
+            payload = json.load(fh)
+    except (OSError, ValueError):
+        payload = {'updated_at': 0.0, 'window_s': 2.0, 'n': 0, 'points': []}
+    body = json.dumps(payload).encode('utf-8')
+    resp = make_response(body)
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
 
 
 @flask_app.route('/', methods=['GET'])
@@ -884,6 +991,50 @@ def api_speed():
     return _control_json()
 
 
+@flask_app.route('/api/lidar', methods=['GET', 'POST'])
+def api_lidar():
+    """Obstacle-safety zones for the rotating LiDAR (dashboard LiDAR tab).
+
+    POST takes any subset of ``{enabled, lidar_stop_dist_m, lidar_slow_dist_m,
+    lidar_slow_v_mps, lidar_stale_ms, lidar_sector_deg}``. Every numeric
+    value is clamped here on the server: the slider ranges are a hint, not
+    the authority, so a hand-crafted request cannot set a stop distance the
+    rover cannot react to.
+
+    Turning the LiDAR safety OFF removes a safety layer, so it needs the
+    password; turning it back ON never does.
+    """
+    if request.method == 'POST':
+        body = request.get_json(silent=True) or {}
+        patch = {}
+        if 'enabled' in body:
+            want = bool(body['enabled'])
+            if not want:
+                ok, status = _password_ok(request)
+                if not ok:
+                    return _auth_fail(status)
+            patch['lidar_enabled'] = want
+        for key, clamp in LIDAR_CLAMPS.items():
+            if body.get(key) is None:
+                continue
+            try:
+                patch[key] = clamp(body[key])
+            except (TypeError, ValueError):
+                return jsonify({'error': f'{key} must be a number'}), 400
+        if patch:
+            before = {k: read_state().get(k) for k in patch}
+            write_state(lidar=patch)
+            after = {k: read_state()[k] for k in patch}
+            changed = {k: (before[k], after[k]) for k in patch if before[k] != after[k]}
+            log.info('[API] lidar settings from %s: %s', request.remote_addr, changed or 'no-op')
+    state = read_state()
+    return jsonify({
+        **{k: state[k] for k in ('lidar_enabled', *LIDAR_CLAMPS)},
+        'limits': LIDAR_LIMITS,
+        'slow_gap_m': LIDAR_SLOW_GAP_M,
+    })
+
+
 @flask_app.route('/status', methods=['GET'])
 def status():
     payload = _read_status()
@@ -943,6 +1094,45 @@ def frame_jpg():
     )
 
 
+# ─────────────────────────────────────────────────────────────────
+# USB camera feed (Logitech C270) — separate from the AGV pipeline.
+# ─────────────────────────────────────────────────────────────────
+#
+# Why its own publisher: the AGV pipeline (``/video_feed`` above) reads
+# JPEGs the line-follower writes to disk and only updates them at ~5 Hz
+# with the overlay baked in. The new C270 tab wants the raw, unannotated
+# stream at the camera's native 12 fps so the operator can inspect the
+# scene directly. Keeping it independent also means the line follower
+# can crash or be stopped without losing the USB feed.
+def _cam_mjpeg_iter():
+    boundary = b'frame'
+    last_seq = -1
+    while True:
+        jpeg = CAM_PUBLISHER.latest_jpeg()
+        status = CAM_PUBLISHER.status()
+        if jpeg and status['frame_seq'] != last_seq:
+            last_seq = status['frame_seq']
+            yield (b'--' + boundary + b'\r\n'
+                   b'Content-Type: image/jpeg\r\n'
+                   b'Content-Length: ' + str(len(jpeg)).encode('ascii') + b'\r\n'
+                   b'Cache-Control: no-cache\r\n\r\n') + jpeg + b'\r\n'
+        time.sleep(0.05)
+
+
+@flask_app.route('/cam/mjpeg', methods=['GET'])
+def cam_mjpeg():
+    return Response(
+        _cam_mjpeg_iter(),
+        mimetype='multipart/x-mixed-replace; boundary=frame',
+        headers={'Cache-Control': 'no-cache, no-store, must-revalidate'},
+    )
+
+
+@flask_app.route('/cam/status', methods=['GET'])
+def cam_status():
+    return jsonify(CAM_PUBLISHER.status())
+
+
 @flask_app.route('/detections', methods=['GET'])
 def detections():
     """Read-only detection viewer.
@@ -953,6 +1143,209 @@ def detections():
     histogram of recent directions. All data is sourced from status.json.
     """
     return render_template('detections.html')
+
+
+# ── Per-tick data for the dashboard Logs tab ───────────────────
+# Public routes (same sensitivity class as /status and /frame.jpg).
+# /api/livelog tails the AGV control loop's per-tick JSONL stream;
+# /api/sessions/* lets the dashboard show a scrubber over the latest
+# recording's row timeline.
+
+_LIVELOG_KNOWN_FILTERS = {'errors', 'obstacle_slow', 'obstacle_stop',
+                           'enc_fault_l', 'enc_fault_r', 'obstacle'}
+
+
+def _livelog_path(today=None):
+    from datetime import date as _date
+    d = today or _date.today()
+    return Path(LIVE_FRAMES_DIR) / f'agv-frames-{d.isoformat()}.jsonl'
+
+
+def _row_matches_filter(row: dict, flt: str) -> bool:
+    if flt == 'errors':
+        return bool(row.get('errors'))
+    if flt == 'obstacle_slow':
+        return row.get('obst_raw') == 'SLOW'
+    if flt == 'obstacle_stop':
+        return row.get('obst_raw') == 'STOP'
+    if flt == 'obstacle':
+        return row.get('obst_raw') in ('SLOW', 'STOP')
+    if flt == 'enc_fault_l':
+        return bool((row.get('fault_bits') or 0) & 1)
+    if flt == 'enc_fault_r':
+        return bool((row.get('fault_bits') or 0) & 2)
+    return False
+
+
+@flask_app.route('/api/livelog', methods=['GET'])
+def api_livelog():
+    """Stream today's per-tick rows as NDJSON, advancing the client cursor.
+
+    Query params:
+      since=<epoch_ms>   emit only rows with t > since (default 0 = all)
+      filter=<csv>       restrict to rows matching any of the named filters
+    Returns 200 with one JSON object per line. Missing file returns 200 [].
+    """
+    since_raw = request.args.get('since', '0')
+    try:
+        since = float(since_raw) / 1000.0 if since_raw else 0.0
+    except (TypeError, ValueError):
+        return jsonify({'error': 'bad_since'}), 400
+    flt_raw = (request.args.get('filter') or '').strip()
+    filters = [f for f in flt_raw.split(',') if f in _LIVELOG_KNOWN_FILTERS] \
+        if flt_raw else []
+
+    path = _livelog_path()
+    if not path.is_file():
+        return Response('', mimetype='application/x-ndjson')
+
+    def stream_filtered():
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(obj, dict):
+                        continue
+                    t_val = obj.get('t')
+                    if isinstance(t_val, (int, float)) and not isinstance(t_val, bool) \
+                            and t_val < since:
+                        continue
+                    if filters and not any(_row_matches_filter(obj, f) for f in filters):
+                        continue
+                    yield json.dumps(obj, separators=(',', ':')) + '\n'
+        except OSError:
+            return
+
+    return Response(stream_filtered(), mimetype='application/x-ndjson',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate'})
+
+
+@flask_app.route('/api/sessions/latest', methods=['GET'])
+def api_sessions_latest():
+    """Return the newest recording session's metadata, or 404 if none exist."""
+    root = Path(REC_DIR)
+    if not root.is_dir():
+        return jsonify({'error': 'no_sessions'}), 404
+    newest = None
+    for entry in sorted(root.iterdir(), reverse=True):
+        if entry.is_dir() and _SESSION_RE.match(entry.name):
+            newest = entry
+            break
+    if newest is None:
+        return jsonify({'error': 'no_sessions'}), 404
+    info = _dir_stats(newest)
+    info['name'] = newest.name
+    info['folder'] = str(newest)
+    started_mono = (info.get('started_mono') if isinstance(info.get('started_mono'), (int, float))
+                    else None)
+    duration_s = info.get('duration_s') if isinstance(info.get('duration_s'), (int, float)) else 0.0
+    info['started_at_ms'] = int((started_mono - duration_s) * 1000) if started_mono else 0
+    info['n'] = info.get('frames') or 0
+    return jsonify(info)
+
+
+@flask_app.route('/api/sessions/<name>/timeline', methods=['GET'])
+def api_session_timeline(name):
+    """Return a slice of the named session's rows as JSON.
+
+    Query params:
+      from=<int>   first row index (default 0)
+      to=<int>     last row index inclusive (default -1 = last)
+    Errors:
+      404 unknown session, 416 out-of-range.
+    """
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'unknown_session'}), 404
+    all_rows = recording_io.load_rows(path, sort=True)
+    total = len(all_rows)
+    try:
+        rf = int(request.args.get('from', '0'))
+        rt = int(request.args.get('to', str(total - 1)))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'bad_range'}), 400
+    if rf < 0:
+        rf = max(0, total + rf)
+    if rt < 0:
+        rt = max(0, total + rt)
+    if rf > rt or rf >= total:
+        return jsonify({'error': 'range_out_of_bounds', 'total': total}), 416
+    rt = min(rt, total - 1)
+    rows = all_rows[rf:rt + 1]
+    fields_raw = (request.args.get('fields') or '').strip()
+    fields = [f for f in fields_raw.split(',') if f] if fields_raw else []
+    if fields:
+        rows = [{k: r.get(k) for k in fields} for r in rows]
+    return jsonify({
+        'session': _dir_stats(path),
+        'rows': rows,
+        'total': total,
+        'from': rf,
+        'to': rt,
+    })
+
+
+@flask_app.route('/api/sessions/<name>/timeline.csv', methods=['GET'])
+def api_session_timeline_csv(name):
+    """Stream the same row slice as CSV for download."""
+    import csv as _csv
+    from io import StringIO as _StringIO
+    path = _session_path(name)
+    if path is None:
+        return jsonify({'error': 'unknown_session'}), 404
+    rows = recording_io.load_rows(path, sort=True)
+    total = len(rows)
+    try:
+        rf = int(request.args.get('from', '0'))
+        rt = int(request.args.get('to', str(total - 1)))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'bad_range'}), 400
+    if rf < 0:
+        rf = max(0, total + rf)
+    if rt < 0:
+        rt = max(0, total + rt)
+    if rf > rt or rf >= total:
+        return jsonify({'error': 'range_out_of_bounds', 'total': total}), 416
+    rt = min(rt, total - 1)
+    rows = rows[rf:rt + 1]
+
+    # Flatten the nested row dict to a stable header list. New top-level keys
+    # get appended at the end; existing column order is preserved.
+    flat = [_flatten_row(r) for r in rows]
+    header = []
+    seen = set()
+    for f in flat:
+        for k in f:
+            if k not in seen:
+                seen.add(k)
+                header.append(k)
+
+    buf = _StringIO()
+    w = _csv.DictWriter(buf, fieldnames=header, extrasaction='ignore')
+    w.writeheader()
+    for f in flat:
+        w.writerow(f)
+    return Response(buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename="{name}-timeline.csv"',
+                             'Cache-Control': 'no-cache, no-store, must-revalidate'})
+
+
+def _flatten_row(row: dict) -> dict:
+    """Flatten a row dict to top-level keys with dotted names for nested."""
+    out: dict = {}
+    for k, v in row.items():
+        if isinstance(v, dict):
+            for kk, vv in v.items():
+                out[f'{k}.{kk}'] = vv
+        else:
+            out[k] = v
+    return out
 
 
 # ─────────────────────────────────────────────────────────────────

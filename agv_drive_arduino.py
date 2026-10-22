@@ -29,8 +29,11 @@ from camera import Camera, CameraReport
 from config import (
     LOG_FILE, MANUAL_TURN_FRAC, OBST_ENABLED, SHOW_WINDOW, TICKS_PER_M, V_MAX,
     WHEEL_DIAMETER_M, WHEEL_MAX_MPS,
+    LIVE_FRAMES_DIR, LIVE_FRAMES_ENABLED, LIVE_FRAMES_HZ,
 )
 from control_state import MANUAL_STALE_S, ControlReader, write_enabled, write_state
+from frame_log import FrameLog
+from lidar import LidarSafety, LidarSnapshot, PointsPublisher
 from rec_row import build_log_row
 import build_info
 import config
@@ -98,6 +101,14 @@ class AGV:
         self.controller = LineController()
         self.motion = MotionThread(self.arduino)
         self.control = ControlReader()
+        # Rotating LiDAR obstacle safety. Constructing it opens nothing;
+        # probe() owns the connect so startup stays in one place.
+        self.lidar = LidarSafety()
+        self._lid: LidarSnapshot = self.lidar.snapshot()
+        self._lid_action = 'OFF'
+        self._lid_points_writer: Optional[PointsPublisher] = None
+        self._lid_zones_cache: dict = self.control.state()
+        self._lid_zones_t = 0.0
         self.probes: list[dict] = []
         self.last_error: Optional[str] = None
         self.stop_requested = False
@@ -117,6 +128,15 @@ class AGV:
         self._snap_t = 0.0
         self._dw: dict = {}
         self._snap_n = 0
+        self._last_row: Optional[dict] = None  # last build_log_row dict (consumed by frame_log)
+        self.frame_log: Optional[FrameLog] = None
+        if LIVE_FRAMES_ENABLED:
+            self.frame_log = FrameLog(base_dir=LIVE_FRAMES_DIR, hz=LIVE_FRAMES_HZ)
+            try:
+                self.frame_log.start()
+            except Exception:
+                log.exception('frame_log start failed (continuing without it)')
+                self.frame_log = None
 
     # ── startup ──────────────────────────────────────────────────────
     def probe(self) -> None:
@@ -132,6 +152,102 @@ class AGV:
                         '(motors stay off)')
                 log.error('[Arduino] %s', note)
         self.probes = [probe_to_dict(cam), probe_to_dict(ard, note)]
+        # LiDAR last: it blocks ~9 s while the head spins up, and the
+        # rover must not start moving until the sensor is either live or
+        # known-missing. A missing port fails fast, so an unplugged
+        # sensor costs nothing here.
+        self.probes.append(self._probe_lidar())
+
+    def _probe_lidar(self) -> dict:
+        """LiDAR row for the same "Sensor probes" table."""
+        if not self.lidar.enabled:
+            return {'name': 'LiDAR', 'ok': False, 'detail': 'disabled in config',
+                    'note': 'obstacle safety OFF'}
+        opened = self.lidar.connect()
+        if not opened:
+            return {'name': 'LiDAR', 'ok': False,
+                    'detail': self.lidar.port,
+                    'note': 'obstacle safety ARMED but sensor unreachable '
+                            '- the rover will refuse to move'}
+        # Start the points.json writer once so the dashboard can render
+        # the raw-points polar overlay. Out dir is the same one the
+        # telemetry publisher writes status.json into; the dashboard's
+        # web.py serves /points.json from that location.
+        #
+        # zones_source is re-read on every publish tick, so moving a zone
+        # slider on the dashboard moves the canvas's stop/slow rings
+        # within ~200 ms instead of at the next restart.
+        try:
+            from config import TELEMETRY_DIR
+            self._lid_points_writer = PointsPublisher(
+                self.lidar,
+                TELEMETRY_DIR,
+                zones_source=lambda: (
+                    self.control.state().get('lidar_stop_dist_m', 0.50),
+                    self.control.state().get('lidar_slow_dist_m', 1.00),
+                ),
+            ).start()
+        except Exception:
+            log.exception('LiDAR points publisher failed to start')
+            self._lid_points_writer = None
+        snap = self.lidar.snapshot()
+        return {'name': 'LiDAR', 'ok': snap.ok,
+                'detail': f'{self.lidar.port} @ {self.lidar.baud} baud',
+                'note': f'{self.lidar.n_sectors} sectors of '
+                        f'{self.lidar.sector_deg} deg'}
+
+    # ── LiDAR obstacle safety ────────────────────────────────────────
+    def _lid_zones(self) -> dict:
+        """The LiDAR settings in force, re-read at most a few times a
+        second. _publish() needs them for the dashboard and does not
+        otherwise hold the tick's control dict."""
+        now = time.monotonic()
+        if now - self._lid_zones_t > 0.25:
+            self._lid_zones_cache = self.control.state()
+            self._lid_zones_t = now
+        return self._lid_zones_cache
+
+    def _lidar_override(self, ctl) -> Optional[tuple]:
+        """Decide what the LiDAR allows this tick.
+
+        Returns ``(action, v_cap, reason)`` or None when the layer is off.
+        ``action`` is CLEAR / SLOW / ESTOP; ``v_cap`` is the ceiling on the
+        commanded forward speed in m/s (None = no ceiling).
+
+        The zones come from control.json so the operator can retune from
+        the dashboard without SSH. This runs in every mode — a safety kill
+        is a safety kill — and sits *after* the line follower's own
+        obstacle check and *before* the motor command, so it can only ever
+        reduce motion, never add any.
+        """
+        if not self.lidar.enabled or not ctl.get('lidar_enabled', True):
+            self._lid_action = 'OFF'
+            return None
+        snap = self.lidar.snapshot()
+        self._lid = snap
+        stop_d = ctl['lidar_stop_dist_m']
+        slow_d = ctl['lidar_slow_dist_m']
+
+        # No fresh samples: we cannot see, so we must not move. This is
+        # the fail-safe direction — a sensor fault stops the rover rather
+        # than silently removing the layer.
+        if not snap.ok:
+            self._lid_action = 'ESTOP'
+            return ('ESTOP', None, f'lidar {snap.reason}')
+
+        front = snap.min_front_m
+        if front == float('inf'):
+            self._lid_action = 'CLEAR'
+            return None                       # nothing in the front sector
+        if front < stop_d:
+            self._lid_action = 'ESTOP'
+            return ('ESTOP', None, f'lidar estop front={front:.2f}m')
+        if front < slow_d:
+            self._lid_action = 'SLOW'
+            return ('SLOW', ctl['lidar_slow_v_mps'],
+                    f'lidar slow front={front:.2f}m')
+        self._lid_action = 'CLEAR'
+        return None
 
     def start(self) -> None:
         write_enabled(False)                    # never start driving on boot (speed kept)
@@ -157,6 +273,13 @@ class AGV:
         log.warning('Shutting down AGV (%s)...', self.stop_reason)
         self.recorder.stop('AGV shutting down')
         self.recorder.close(5.0)
+        fl = getattr(self, 'frame_log', None)
+        if fl is not None:
+            try:
+                fl.close()
+            except Exception:
+                log.exception('frame_log close failed (continuing)')
+            self.frame_log = None
         self.motion.request_stop()                 # ramps to 0, then returns
         if self.motion.is_alive():
             self.motion.join(timeout=2.0)
@@ -165,6 +288,14 @@ class AGV:
             log.info('   Motors stopped.')
         self.camera.release()
         self.arduino.close()
+        # Reap the LiDAR threads explicitly. Without this the points
+        # publisher keeps the sensor's buffer alive and the reader
+        # thread keeps /dev/ttyUSB0 open, so a restart in the same
+        # process (or a supervisor's restart loop) finds the port busy.
+        pub, self._lid_points_writer = self._lid_points_writer, None
+        if pub is not None:
+            pub.stop()
+        self.lidar.close()
         log.info('AGV shutdown complete.')
         self.telemetry.publish(
             TelemetryState(
@@ -237,11 +368,32 @@ class AGV:
                 d = dataclasses.replace(
                     d, status_text=d.status_text + f' [obstacle {vis.obstacle.state} ignored]')
             v_t, w_t = d.v * scale, d.omega * scale
+        # LiDAR obstacle safety — the last word before the motor command,
+        # in every mode. It can only subtract speed.
+        lid = self._lidar_override(ctl)
+        if lid is not None:
+            action, v_cap, reason = lid
+            if action == 'ESTOP':
+                v_t = w_t = 0.0
+                if not d.emergency:
+                    d = dataclasses.replace(d, emergency=True,
+                                            status_text=reason)
+            elif action == 'SLOW' and v_cap is not None:
+                # v_t is PWM-scaled (see `scale` above); convert the cap
+                # back into the same units so both sides agree.
+                v_limit = v_cap * 255.0 / V_MAX
+                if v_t > v_limit:
+                    v_t = v_limit
+                d = dataclasses.replace(d, status_text=d.status_text + f' [{reason}]')
         self.motion.set_target(v_t, w_t, d.emergency, enabled)
         wheels = self.motion.snapshot()
 
         events = self._transitions(d, vis, enabled, frame_ok, ctl['mode'])
         self._record(now, frame, info, vis, d, ctl, enabled, speed_pct, v_t, w_t, wheels, link_ok, events)
+        # Live per-tick JSONL stream for the dashboard "Logs" tab. The writer
+        # rate-limits internally; we just feed it every tick.
+        if self.frame_log is not None and self._last_row is not None:
+            self.frame_log.write(build_telem_row(self._last_row))
         self._enabled = enabled
         self._publish(now, frame, vis, d, wheels, enabled, link_ok, events,
                       speed_pct, v_t, w_t, ctl['mode'], enforce)
@@ -288,7 +440,13 @@ class AGV:
             t_mono=now, ctl=ctl, enabled=enabled, speed_pct=speed_pct, line=line, obst=obst,
             enforce=ctl['obstacle_stop'], d=d, v_t=v_t, w_t=w_t, wheels=wheels, snap=snap,
             link_ok=link_ok, vision_ms=vis.ms, curve_px=curve_px, look_px=look_px,
-            closed_wanted=ctl['closed_loop'], fw_ready=self.arduino.closed_loop_ready())
+            closed_wanted=ctl['closed_loop'], fw_ready=self.arduino.closed_loop_ready(),
+            req_mono=getattr(info, 'monotonic', None))
+        # Stash for the live frame-log writer regardless of recorder activity, so
+        # the dashboard Logs tab gets per-tick data even between recordings.
+        self._last_row = row
+        if not rec.active:
+            return
         problem = legacy_problem(row)
         triggers, telem = (), None
         try:
@@ -353,6 +511,27 @@ class AGV:
             lidar_connected=OBST_ENABLED,
             lidar_error=None if OBST_ENABLED else 'obstacle detection disabled',
             lidar_distance_mm=obst.distance_m * 1000.0,
+            # Rotating-LiDAR safety. The snapshot was taken by
+            # _lidar_override at 50 Hz this tick; only the zones (which
+            # change rarely, from the dashboard) are re-read here.
+            lidar_min_front_m=(None if self._lid.min_front_m == float('inf')
+                               else round(self._lid.min_front_m, 3)),
+            lidar_sector_mins=[(None if v == float('inf') else round(v, 3))
+                               for v in self._lid.min_per_sector.values()],
+            lidar_age_ms=self._lid.age_ms,
+            lidar_estop_reason=self._lid.reason,
+            lidar_action=self._lid_action,
+            lidar_stop_dist_m=self._lid_zones()['lidar_stop_dist_m'],
+            lidar_slow_dist_m=self._lid_zones()['lidar_slow_dist_m'],
+            lidar_slow_v_mps=self._lid_zones()['lidar_slow_v_mps'],
+            lidar_enabled=bool(self.lidar.enabled
+                               and self._lid_zones()['lidar_enabled']),
+            # Live LiDAR connection details — the dashboard's status bar
+            # surfaces these so an operator can confirm where the feed
+            # is wired without SSH'ing in.
+            lidar_port=self.lidar.port,
+            lidar_baud=self.lidar.baud,
+            lidar_sector_deg=self.lidar.sector_deg,
             final_command=d.final_cmd,
             decision_reason=d.status_text,
             sensor_probes=self.probes,
