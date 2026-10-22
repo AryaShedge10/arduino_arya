@@ -1,0 +1,618 @@
+{
+  "battery_unknown": {
+    "bytes": 59564,
+    "heard": "I can't measure the battery.",
+    "recorded": "2026-10-22",
+    "seconds": 1.24,
+    "text": "I can't measure the battery.",
+    "voice": "aura-2-thalia-en"
+  },
+  "cancelled": {
+    "bytes": 37004,
+    "heard": "Canceled.",
+    "recorded": "2026-10-22",
+    "seconds": 0.77,
+    "text": "Cancelled.",
+    "voice": "aura-2-thalia-en"
+  },
+  "clarify_default": {
+    "bytes": 60044,
+    "heard": "Sorry. I didn't catch that.",
+    "recorded": "2026-10-22",
+    "seconds": 1.25,
+    "text": "Sorry, I didn't catch that.",
+    "voice": "aura-2-thalia-en"
+  },
+  "clarify_direction": {
+    "bytes": 90284,
+    "heard": "Sorry. Which direction?",
+    "recorded": "2026-10-22",
+    "seconds": 1.88,
+    "text": "Sorry, which direction?",
+    "voice": "aura-2-thalia-en"
+  },
+  "clarify_distance": {
+    "bytes": 25964,
+    "heard": "Distance.",
+    "recorded": "2026-10-22",
+    "seconds": 0.54,
+    "text": "Distance?",
+    "voice": "aura-2-thalia-en"
+  },
+  "confirm_prompt": {
+    "bytes": 85484,
+    "heard": "Say confirm to go.",
+    "recorded": "2026-10-22",
+    "seconds": 1.78,
+    "text": "Say confirm to go.",
+    "voice": "aura-2-thalia-en"
+  },
+  "confirm_timeout": {
+    "bytes": 113324,
+    "heard": "No confirmation. Standing by.",
+    "recorded": "2026-10-22",
+    "seconds": 2.36,
+    "text": "No confirmation. Standing by.",
+    "voice": "aura-2-thalia-en"
+  },
+  "confirmed": {
+    "bytes": 34604,
+    "heard": "Confirmed.",
+    "recorded": "2026-10-22",
+    "seconds": 0.72,
+    "text": "Confirmed.",
+    "voice": "aura-2-thalia-en"
+  },
+  "controller_unreachable": {
+    "bytes": 76844,
+    "heard": "I can't reach the controller.",
+    "recorded": "2026-10-22",
+    "seconds": 1.6,
+    "text": "I can't reach the controller.",
+    "voice": "aura-2-thalia-en"
+  },
+  "emergency_stop": {
+    "bytes": 36524,
+    "heard": "Stopped.",
+    "recorded": "2026-10-22",
+    "seconds": 0.76,
+    "text": "Stopped.",
+    "voice": "aura-2-thalia-en"
+  },
+  "frag_obstacle_at": {
+    "bytes": 73004,
+    "heard": "Obstacle ahead at",
+    "recorded": "2026-10-22",
+    "seconds": 1.52,
+    "text": "Obstacle ahead at",
+    "voice": "aura-2-thalia-en"
+  },
+  "help_summary": {
+    "bytes": 146444,
+    "heard": "I can move, stop, and report status.",
+    "recorded": "2026-10-22",
+    "seconds": 3.05,
+    "text": "I can move, stop, and report status.",
+    "voice": "aura-2-thalia-en"
+  },
+  "intro": {
+    "bytes": 118124,
+    "heard": "I'm Tarka. Say stop at any time.",
+    "recorded": "2026-10-22",
+    "seconds": 2.46,
+    "text": "I'm Tarka. Say stop at any time.",
+    "voice": "aura-2-thalia-en"
+  },
+  "lidar_clear": {
+    "bytes": 46124,
+    "heard": "Path clear.",
+    "recorded": "2026-10-22",
+    "seconds": 0.96,
+    "text": "Path clear.",
+    "voice": "aura-2-thalia-en"
+  },
+  "lidar_disabled": {
+    "bytes": 279884,
+    "heard": "LiDAR disabled. Password override accepted. Test bench mode active.",
+    "recorded": "2026-10-22",
+    "seconds": 5.83,
+    "text": "LiDAR disabled. Password override accepted. Test bench mode active.",
+    "voice": "aura-2-thalia-en"
+  },
+  "lidar_hold": {
+    "bytes": 204044,
+    "heard": "Holding obstacle ahead. We'll retry when clear.",
+    "recorded": "2026-10-22",
+    "seconds": 4.25,
+    "text": "Holding \u2014 obstacle ahead. Will retry when clear.",
+    "voice": "aura-2-thalia-en"
+  },
+  "motion_authorised": {
+    "bytes": 32204,
+    "heard": "Moving.",
+    "recorded": "2026-10-22",
+    "seconds": 0.67,
+    "text": "Moving.",
+    "voice": "aura-2-thalia-en"
+  },
+  "motion_complete": {
+    "bytes": 21164,
+    "heard": "Done.",
+    "recorded": "2026-10-22",
+    "seconds": 0.44,
+    "text": "Done.",
+    "voice": "aura-2-thalia-en"
+  },
+  "motors_disabled": {
+    "bytes": 46604,
+    "heard": "Motors off.",
+    "recorded": "2026-10-22",
+    "seconds": 0.97,
+    "text": "Motors off.",
+    "voice": "aura-2-thalia-en"
+  },
+  "mute_engaged": {
+    "bytes": 39404,
+    "heard": "VoiceOff.",
+    "recorded": "2026-10-22",
+    "seconds": 0.82,
+    "text": "Voice off.",
+    "voice": "aura-2-thalia-en"
+  },
+  "mute_released": {
+    "bytes": 34604,
+    "heard": "Voice on.",
+    "recorded": "2026-10-22",
+    "seconds": 0.72,
+    "text": "Voice on.",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_0": {
+    "bytes": 29324,
+    "heard": "0.",
+    "recorded": "2026-10-22",
+    "seconds": 0.61,
+    "text": "zero",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_1": {
+    "bytes": 25964,
+    "heard": "One.",
+    "recorded": "2026-10-22",
+    "seconds": 0.54,
+    "text": "one",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_10": {
+    "bytes": 28844,
+    "heard": "10.",
+    "recorded": "2026-10-22",
+    "seconds": 0.6,
+    "text": "ten",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_100": {
+    "bytes": 37484,
+    "heard": "One hundred.",
+    "recorded": "2026-10-22",
+    "seconds": 0.78,
+    "text": "one hundred",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_11": {
+    "bytes": 38444,
+    "heard": "11.",
+    "recorded": "2026-10-22",
+    "seconds": 0.8,
+    "text": "eleven",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_12": {
+    "bytes": 28844,
+    "heard": "12.",
+    "recorded": "2026-10-22",
+    "seconds": 0.6,
+    "text": "twelve",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_13": {
+    "bytes": 34604,
+    "heard": "13.",
+    "recorded": "2026-10-22",
+    "seconds": 0.72,
+    "text": "thirteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_14": {
+    "bytes": 32684,
+    "heard": "14.",
+    "recorded": "2026-10-22",
+    "seconds": 0.68,
+    "text": "fourteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_15": {
+    "bytes": 38444,
+    "heard": "15.",
+    "recorded": "2026-10-22",
+    "seconds": 0.8,
+    "text": "fifteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_16": {
+    "bytes": 40364,
+    "heard": "16.",
+    "recorded": "2026-10-22",
+    "seconds": 0.84,
+    "text": "sixteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_17": {
+    "bytes": 46124,
+    "heard": "17.",
+    "recorded": "2026-10-22",
+    "seconds": 0.96,
+    "text": "seventeen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_18": {
+    "bytes": 32684,
+    "heard": "18.",
+    "recorded": "2026-10-22",
+    "seconds": 0.68,
+    "text": "eighteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_19": {
+    "bytes": 44204,
+    "heard": "19.",
+    "recorded": "2026-10-22",
+    "seconds": 0.92,
+    "text": "nineteen",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_2": {
+    "bytes": 24044,
+    "heard": "Two.",
+    "recorded": "2026-10-22",
+    "seconds": 0.5,
+    "text": "two",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_20": {
+    "bytes": 38444,
+    "heard": "20.",
+    "recorded": "2026-10-22",
+    "seconds": 0.8,
+    "text": "twenty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_3": {
+    "bytes": 28844,
+    "heard": "Three.",
+    "recorded": "2026-10-22",
+    "seconds": 0.6,
+    "text": "three",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_30": {
+    "bytes": 19244,
+    "heard": "30.",
+    "recorded": "2026-10-22",
+    "seconds": 0.4,
+    "text": "thirty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_4": {
+    "bytes": 28844,
+    "heard": "Four.",
+    "recorded": "2026-10-22",
+    "seconds": 0.6,
+    "text": "four",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_40": {
+    "bytes": 23564,
+    "heard": "40.",
+    "recorded": "2026-10-22",
+    "seconds": 0.49,
+    "text": "forty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_5": {
+    "bytes": 24044,
+    "heard": "Five.",
+    "recorded": "2026-10-22",
+    "seconds": 0.5,
+    "text": "five",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_50": {
+    "bytes": 36044,
+    "heard": "50.",
+    "recorded": "2026-10-22",
+    "seconds": 0.75,
+    "text": "fifty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_6": {
+    "bytes": 31724,
+    "heard": "6.",
+    "recorded": "2026-10-22",
+    "seconds": 0.66,
+    "text": "six",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_60": {
+    "bytes": 37964,
+    "heard": "60.",
+    "recorded": "2026-10-22",
+    "seconds": 0.79,
+    "text": "sixty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_7": {
+    "bytes": 30284,
+    "heard": "7.",
+    "recorded": "2026-10-22",
+    "seconds": 0.63,
+    "text": "seven",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_70": {
+    "bytes": 38444,
+    "heard": "70.",
+    "recorded": "2026-10-22",
+    "seconds": 0.8,
+    "text": "seventy",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_8": {
+    "bytes": 26924,
+    "heard": "8.",
+    "recorded": "2026-10-22",
+    "seconds": 0.56,
+    "text": "eight",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_80": {
+    "bytes": 26924,
+    "heard": "80.",
+    "recorded": "2026-10-22",
+    "seconds": 0.56,
+    "text": "eighty",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_9": {
+    "bytes": 26924,
+    "heard": "9.",
+    "recorded": "2026-10-22",
+    "seconds": 0.56,
+    "text": "nine",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_90": {
+    "bytes": 32684,
+    "heard": "90.",
+    "recorded": "2026-10-22",
+    "seconds": 0.68,
+    "text": "ninety",
+    "voice": "aura-2-thalia-en"
+  },
+  "num_point": {
+    "bytes": 13484,
+    "heard": "Point.",
+    "recorded": "2026-10-22",
+    "seconds": 0.28,
+    "text": "point",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_none": {
+    "bytes": 66764,
+    "heard": "Nothing in front of me.",
+    "recorded": "2026-10-22",
+    "seconds": 1.39,
+    "text": "Nothing in front of me.",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_slow": {
+    "bytes": 116204,
+    "heard": "Slowing down. Obstacle nearby.",
+    "recorded": "2026-10-22",
+    "seconds": 2.42,
+    "text": "Slowing down. Obstacle nearby.",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_stop": {
+    "bytes": 105644,
+    "heard": "Obstacle ahead. Stopping.",
+    "recorded": "2026-10-22",
+    "seconds": 2.2,
+    "text": "Obstacle ahead. Stopping.",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_stop_disabled": {
+    "bytes": 270284,
+    "heard": "Obstacle stop disabled. Password override accepted. Test edge mode active.",
+    "recorded": "2026-10-22",
+    "seconds": 5.63,
+    "text": "Obstacle stop disabled. Password override accepted. Test bench mode active.",
+    "voice": "aura-2-thalia-en"
+  },
+  "out_of_scope": {
+    "bytes": 148364,
+    "heard": "I can't do that from voice. Please use the dashboard.",
+    "recorded": "2026-10-22",
+    "seconds": 3.09,
+    "text": "I can't do that from voice. Please use the dashboard.",
+    "voice": "aura-2-thalia-en"
+  },
+  "person_unknown": {
+    "bytes": 74444,
+    "heard": "Unrecognized person.",
+    "recorded": "2026-10-22",
+    "seconds": 1.55,
+    "text": "Unrecognised person.",
+    "voice": "aura-2-thalia-en"
+  },
+  "position_unknown": {
+    "bytes": 78764,
+    "heard": "I don't track my position.",
+    "recorded": "2026-10-22",
+    "seconds": 1.64,
+    "text": "I don't track my position.",
+    "voice": "aura-2-thalia-en"
+  },
+  "standing_by": {
+    "bytes": 53324,
+    "heard": "Standing by.",
+    "recorded": "2026-10-22",
+    "seconds": 1.11,
+    "text": "Standing by.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_camera_offline": {
+    "bytes": 68204,
+    "heard": "Camera is offline.",
+    "recorded": "2026-10-22",
+    "seconds": 1.42,
+    "text": "Camera is offline.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_camera_online": {
+    "bytes": 55724,
+    "heard": "Camera is online.",
+    "recorded": "2026-10-22",
+    "seconds": 1.16,
+    "text": "Camera is online.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_lidar_clear": {
+    "bytes": 55244,
+    "heard": "My DAR is clear.",
+    "recorded": "2026-10-22",
+    "seconds": 1.15,
+    "text": "LiDAR is clear.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_lidar_off": {
+    "bytes": 113324,
+    "heard": "Lidar safety is off.",
+    "recorded": "2026-10-22",
+    "seconds": 2.36,
+    "text": "LiDAR safety is off.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_lidar_offline": {
+    "bytes": 79244,
+    "heard": "LiDAR is offline.",
+    "recorded": "2026-10-22",
+    "seconds": 1.65,
+    "text": "LiDAR is offline.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_mode_auto": {
+    "bytes": 36044,
+    "heard": "Auto mode.",
+    "recorded": "2026-10-22",
+    "seconds": 0.75,
+    "text": "Auto mode.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_mode_manual": {
+    "bytes": 42764,
+    "heard": "Manual mode.",
+    "recorded": "2026-10-22",
+    "seconds": 0.89,
+    "text": "Manual mode.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_motors_on": {
+    "bytes": 47084,
+    "heard": "Motors are on.",
+    "recorded": "2026-10-22",
+    "seconds": 0.98,
+    "text": "Motors are on.",
+    "voice": "aura-2-thalia-en"
+  },
+  "stuck": {
+    "bytes": 135404,
+    "heard": "I'm stuck. Need assistance.",
+    "recorded": "2026-10-22",
+    "seconds": 2.82,
+    "text": "I'm stuck. Need assistance.",
+    "voice": "aura-2-thalia-en"
+  },
+  "understood": {
+    "bytes": 40364,
+    "heard": "Understood.",
+    "recorded": "2026-10-22",
+    "seconds": 0.84,
+    "text": "Understood.",
+    "voice": "aura-2-thalia-en"
+  },
+  "unit_centimeters": {
+    "bytes": 54764,
+    "heard": "Centimeters.",
+    "recorded": "2026-10-22",
+    "seconds": 1.14,
+    "text": "centimeters",
+    "voice": "aura-2-thalia-en"
+  },
+  "unit_degrees": {
+    "bytes": 31724,
+    "heard": "Degrees.",
+    "recorded": "2026-10-22",
+    "seconds": 0.66,
+    "text": "degrees",
+    "voice": "aura-2-thalia-en"
+  },
+  "unit_meter": {
+    "bytes": 34604,
+    "heard": "Meter.",
+    "recorded": "2026-10-22",
+    "seconds": 0.72,
+    "text": "meter",
+    "voice": "aura-2-thalia-en"
+  },
+  "unit_meters": {
+    "bytes": 36524,
+    "heard": "Meters.",
+    "recorded": "2026-10-22",
+    "seconds": 0.76,
+    "text": "meters",
+    "voice": "aura-2-thalia-en"
+  },
+  "voice_control_off": {
+    "bytes": 135404,
+    "heard": "Voice control isn't switched on. Use the dashboard.",
+    "recorded": "2026-10-22",
+    "seconds": 2.82,
+    "text": "Voice control isn't switched on. Use the dashboard.",
+    "voice": "aura-2-thalia-en"
+  },
+  "wake_ready": {
+    "bytes": 27404,
+    "heard": "Yes.",
+    "recorded": "2026-10-22",
+    "seconds": 0.57,
+    "text": "Yes?",
+    "voice": "aura-2-thalia-en"
+  },
+  "who_blind": {
+    "bytes": 53804,
+    "heard": "I can't see right now.",
+    "recorded": "2026-10-22",
+    "seconds": 1.12,
+    "text": "I can't see right now.",
+    "voice": "aura-2-thalia-en"
+  },
+  "who_none": {
+    "bytes": 52364,
+    "heard": "I don't see anyone.",
+    "recorded": "2026-10-22",
+    "seconds": 1.09,
+    "text": "I don't see anyone.",
+    "voice": "aura-2-thalia-en"
+  }
+}
