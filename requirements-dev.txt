@@ -1,0 +1,7 @@
+# Test suite: `python3 tests/run_all.py`
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+#   playwright install chromium     # the dashboard UI tests drive a real browser
+
+-r requirements.txt
+playwright>=1.40

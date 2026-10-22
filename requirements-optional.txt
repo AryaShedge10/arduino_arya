@@ -1,0 +1,32 @@
+# Optional features. Each of these is imported lazily or behind an
+# ImportError guard, so the AGV and dashboard run without them.
+#
+#   pip install -r requirements.txt -r requirements-optional.txt
+#
+# This file is safe to install: it contains only packages that do not touch
+# OpenCV or NumPy. The vision packages are deliberately NOT listed here; see
+# the bottom of the file.
+
+# Voice agent (voice/): Gemini narration, Deepgram/Google speech, Piper TTS.
+google-genai>=2.0
+requests>=2.31
+piper-tts
+
+# ---------------------------------------------------------------------------
+# Face / object detection (cam/, face_recognition/): install by hand.
+#
+# Do NOT `pip install ultralytics onnx` normally. Their dependencies pull in
+#   * opencv-python 5.x  -> replaces the system OpenCV, which is the build
+#                           with GStreamer; the CSI camera then reports
+#                           NO_FRAMES
+#   * numpy 2.x          -> breaks the system OpenCV 4.6's ABI
+# Install them without dependencies, and keep NumPy pinned:
+#
+#   pip install --no-deps "ultralytics>=8.3" "onnx>=1.16" "onnxruntime>=1.18"
+#   pip install "numpy>=1.26,<2"      # re-assert, in case anything moved it
+#
+# torch/torchvision: use NVIDIA's JetPack wheels, not PyPI (no CUDA on aarch64):
+#   https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/
+#
+# `pip check` will then report "ultralytics requires opencv-python, which is
+# not installed". That is expected and correct: the system cv2 provides it.

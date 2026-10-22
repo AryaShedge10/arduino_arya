@@ -1,0 +1,19 @@
+# Core runtime: dashboard, AGV drive loop, LiDAR, recorder.
+# Tested on Jetson (aarch64, JetPack, Python 3.12).
+#
+#   pip install -r requirements.txt
+#
+# NOT listed on purpose:
+#   opencv   Use the system build (apt: python3-opencv). It is compiled with
+#            GStreamer, which the CSI camera pipeline (nvarguscamerasrc)
+#            needs. `pip install opencv-python` ships a build without it and
+#            the camera will report NO_FRAMES.
+#   torch    Jetson needs NVIDIA's wheel, not the PyPI one. See
+#            requirements-optional.txt.
+
+flask>=3.0,<4
+websockets>=15,<16
+pyserial>=3.5,<4
+
+# The system OpenCV 4.6 was built against NumPy 1.x; NumPy 2 breaks its ABI.
+numpy>=1.26,<2
