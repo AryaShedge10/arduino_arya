@@ -55,6 +55,75 @@ _UTTERANCES: dict[str, str] = {
         'Obstacle stop disabled. Password override accepted. Test bench mode active.',
     'lidar_disabled':
         'LiDAR disabled. Password override accepted. Test bench mode active.',
+
+    # ── Motor / Drive state ────────────────────────────────────────
+    'motors_enabled_manual': 'Motors on. Manual mode.',
+    'speed_set':              'Speed set.',
+    'speed_limit_reached':    'Already at maximum speed.',
+
+    # ── Motion / Navigation feedback ──────────────────────────────
+    'turning_left':    'Turning left.',
+    'turning_right':   'Turning right.',
+    'reversing':       'Reversing.',
+    'pivot_aligning':  'Aligning.',
+    'line_found':      'Line found.',
+    'line_lost':       'Line lost. Searching.',
+    'searching':       'Searching for the line.',
+    'recovery_failed': "Can't find the line. Stopping.",
+
+    # ── Obstacle nuance ────────────────────────────────────────────
+    'obstacle_camera_slow': 'Camera obstacle. Slowing.',
+    'obstacle_camera_stop': 'Camera obstacle. Stopped.',
+    'obstacle_cleared':     'Obstacle cleared. Resuming.',
+    'lidar_slow':           'Obstacle in slow zone.',
+
+    # ── Encoder / Firmware faults ──────────────────────────────────
+    'enc_fault_left':     'Left encoder fault. Falling back.',
+    'enc_fault_right':    'Right encoder fault. Falling back.',
+    'enc_fault_cleared':  'Encoder recovered.',
+    'firmware_old':       'Old firmware detected. Please update.',
+    'arduino_timeout':    'Arduino link timed out. Motors off.',
+    'arduino_reconnected':'Arduino link restored.',
+
+    # ── Camera / Vision ────────────────────────────────────────────
+    'camera_stalled':   'Camera not responding. Motors off.',
+    'camera_recovered': 'Camera is back.',
+    'vision_degraded':  'Vision degraded. Reducing speed.',
+
+    # ── Recording ──────────────────────────────────────────────────
+    'recording_started': 'Recording.',
+    'recording_stopped': 'Recording stopped.',
+    'recording_marked':  'Frame marked.',
+    'disk_almost_full':  'Disk almost full. Recording will stop soon.',
+
+    # ── Battery / Power ────────────────────────────────────────────
+    'battery_critical': 'Battery critical. Please charge immediately.',
+    'battery_ok':       'Battery is fine.',
+    'charging':         'Charging.',
+
+    # ── Dialogue / Clarification extras ───────────────────────────
+    'clarify_speed':              'What speed?',
+    'clarify_confirm_or_cancel':  'Confirm or cancel?',
+    'repeat_please':              'Could you repeat that?',
+    'not_while_moving':           "Can't do that while moving.",
+    'too_far':                    'That distance is out of range.',
+    'too_close':                  'Distance too small to be safe.',
+    'command_queued':             'Queued. Will go when clear.',
+    'queue_cleared':              'No commands queued.',
+
+    # ── Status query responses ─────────────────────────────────────
+    'status_speed_pct':          'Speed is at {pct} percent.',
+    'status_line_on':            'On the line.',
+    'status_line_off':           'Not on the line.',
+    'status_obstacle_distance':  'Nearest obstacle at {dist} {unit}.',
+    'status_recording_on':       'Recording is active.',
+    'status_recording_off':      'Not recording.',
+    'status_ok':                 'All systems nominal.',
+
+    # ── Safety overrides (password-gated) ─────────────────────────
+    'obstacle_stop_enabled': 'Obstacle stop re-enabled.',
+    'lidar_enabled_again':   'LiDAR safety restored.',
+    'override_rejected':     'Override rejected. Wrong password.',
 }
 
 

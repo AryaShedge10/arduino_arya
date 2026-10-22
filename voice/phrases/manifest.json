@@ -1,4 +1,37 @@
 {
+  "# ── NEW PHRASES (pending WAV recording) ────────────────────────────": {},
+  "arduino_reconnected": {
+    "bytes": 80684,
+    "heard": "Arduino link restored.",
+    "recorded": "2026-10-22",
+    "seconds": 1.68,
+    "text": "Arduino link restored.",
+    "voice": "aura-2-thalia-en"
+  },
+  "arduino_timeout": {
+    "bytes": 145964,
+    "heard": "Arduino link timed out. Motors off.",
+    "recorded": "2026-10-22",
+    "seconds": 3.04,
+    "text": "Arduino link timed out. Motors off.",
+    "voice": "aura-2-thalia-en"
+  },
+  "battery_critical": {
+    "bytes": 121004,
+    "heard": "Battery critical. Please charge immediately.",
+    "recorded": "2026-10-22",
+    "seconds": 2.52,
+    "text": "Battery critical. Please charge immediately.",
+    "voice": "aura-2-thalia-en"
+  },
+  "battery_ok": {
+    "bytes": 67244,
+    "heard": "Battery is fine.",
+    "recorded": "2026-10-22",
+    "seconds": 1.4,
+    "text": "Battery is fine.",
+    "voice": "aura-2-thalia-en"
+  },
   "battery_unknown": {
     "bytes": 59564,
     "heard": "I can't measure the battery.",
@@ -7,12 +40,44 @@
     "text": "I can't measure the battery.",
     "voice": "aura-2-thalia-en"
   },
+  "camera_recovered": {
+    "bytes": 49964,
+    "heard": "Camera is back.",
+    "recorded": "2026-10-22",
+    "seconds": 1.04,
+    "text": "Camera is back.",
+    "voice": "aura-2-thalia-en"
+  },
+  "camera_stalled": {
+    "bytes": 130604,
+    "heard": "Camera not responding. Motors off.",
+    "recorded": "2026-10-22",
+    "seconds": 2.72,
+    "text": "Camera not responding. Motors off.",
+    "voice": "aura-2-thalia-en"
+  },
   "cancelled": {
     "bytes": 37004,
     "heard": "Canceled.",
     "recorded": "2026-10-22",
     "seconds": 0.77,
     "text": "Cancelled.",
+    "voice": "aura-2-thalia-en"
+  },
+  "charging": {
+    "bytes": 36524,
+    "heard": "Charging.",
+    "recorded": "2026-10-22",
+    "seconds": 0.76,
+    "text": "Charging.",
+    "voice": "aura-2-thalia-en"
+  },
+  "clarify_confirm_or_cancel": {
+    "bytes": 78764,
+    "heard": "Confirm or cancel.",
+    "recorded": "2026-10-22",
+    "seconds": 1.64,
+    "text": "Confirm or cancel?",
     "voice": "aura-2-thalia-en"
   },
   "clarify_default": {
@@ -37,6 +102,22 @@
     "recorded": "2026-10-22",
     "seconds": 0.54,
     "text": "Distance?",
+    "voice": "aura-2-thalia-en"
+  },
+  "clarify_speed": {
+    "bytes": 46124,
+    "heard": "What speed?",
+    "recorded": "2026-10-22",
+    "seconds": 0.96,
+    "text": "What speed?",
+    "voice": "aura-2-thalia-en"
+  },
+  "command_queued": {
+    "bytes": 80684,
+    "heard": "We'll go when clear.",
+    "recorded": "2026-10-22",
+    "seconds": 1.68,
+    "text": "Queued. Will go when clear.",
     "voice": "aura-2-thalia-en"
   },
   "confirm_prompt": {
@@ -71,12 +152,52 @@
     "text": "I can't reach the controller.",
     "voice": "aura-2-thalia-en"
   },
+  "disk_almost_full": {
+    "bytes": 134444,
+    "heard": "Disc almost full. Recording will stop soon.",
+    "recorded": "2026-10-22",
+    "seconds": 2.8,
+    "text": "Disk almost full. Recording will stop soon.",
+    "voice": "aura-2-thalia-en"
+  },
   "emergency_stop": {
     "bytes": 36524,
     "heard": "Stopped.",
     "recorded": "2026-10-22",
     "seconds": 0.76,
     "text": "Stopped.",
+    "voice": "aura-2-thalia-en"
+  },
+  "enc_fault_cleared": {
+    "bytes": 69164,
+    "heard": "Encoder recovered.",
+    "recorded": "2026-10-22",
+    "seconds": 1.44,
+    "text": "Encoder recovered.",
+    "voice": "aura-2-thalia-en"
+  },
+  "enc_fault_left": {
+    "bytes": 126764,
+    "heard": "Left encoder fault falling back.",
+    "recorded": "2026-10-22",
+    "seconds": 2.64,
+    "text": "Left encoder fault. Falling back.",
+    "voice": "aura-2-thalia-en"
+  },
+  "enc_fault_right": {
+    "bytes": 121004,
+    "heard": "Right encoder fault. Falling back.",
+    "recorded": "2026-10-22",
+    "seconds": 2.52,
+    "text": "Right encoder fault. Falling back.",
+    "voice": "aura-2-thalia-en"
+  },
+  "firmware_old": {
+    "bytes": 144044,
+    "heard": "Old firmware detected. Please update.",
+    "recorded": "2026-10-22",
+    "seconds": 3.0,
+    "text": "Old firmware detected. Please update.",
     "voice": "aura-2-thalia-en"
   },
   "frag_obstacle_at": {
@@ -119,12 +240,44 @@
     "text": "LiDAR disabled. Password override accepted. Test bench mode active.",
     "voice": "aura-2-thalia-en"
   },
+  "lidar_enabled_again": {
+    "bytes": 94124,
+    "heard": "LiDAR safety restored.",
+    "recorded": "2026-10-22",
+    "seconds": 1.96,
+    "text": "LiDAR safety restored.",
+    "voice": "aura-2-thalia-en"
+  },
   "lidar_hold": {
     "bytes": 204044,
     "heard": "Holding obstacle ahead. We'll retry when clear.",
     "recorded": "2026-10-22",
     "seconds": 4.25,
-    "text": "Holding \u2014 obstacle ahead. Will retry when clear.",
+    "text": "Holding — obstacle ahead. Will retry when clear.",
+    "voice": "aura-2-thalia-en"
+  },
+  "lidar_slow": {
+    "bytes": 84524,
+    "heard": "Obstacle and slow zone.",
+    "recorded": "2026-10-22",
+    "seconds": 1.76,
+    "text": "Obstacle in slow zone.",
+    "voice": "aura-2-thalia-en"
+  },
+  "line_found": {
+    "bytes": 51884,
+    "heard": "Line found.",
+    "recorded": "2026-10-22",
+    "seconds": 1.08,
+    "text": "Line found.",
+    "voice": "aura-2-thalia-en"
+  },
+  "line_lost": {
+    "bytes": 88364,
+    "heard": "Wine lost. Searching.",
+    "recorded": "2026-10-22",
+    "seconds": 1.84,
+    "text": "Line lost. Searching.",
     "voice": "aura-2-thalia-en"
   },
   "motion_authorised": {
@@ -151,6 +304,14 @@
     "text": "Motors off.",
     "voice": "aura-2-thalia-en"
   },
+  "motors_enabled_manual": {
+    "bytes": 115244,
+    "heard": "Motors on. Manual mode.",
+    "recorded": "2026-10-22",
+    "seconds": 2.4,
+    "text": "Motors on. Manual mode.",
+    "voice": "aura-2-thalia-en"
+  },
   "mute_engaged": {
     "bytes": 39404,
     "heard": "VoiceOff.",
@@ -165,6 +326,14 @@
     "recorded": "2026-10-22",
     "seconds": 0.72,
     "text": "Voice on.",
+    "voice": "aura-2-thalia-en"
+  },
+  "not_while_moving": {
+    "bytes": 73004,
+    "heard": "Can't do that while moving.",
+    "recorded": "2026-10-22",
+    "seconds": 1.52,
+    "text": "Can't do that while moving.",
     "voice": "aura-2-thalia-en"
   },
   "num_0": {
@@ -407,6 +576,30 @@
     "text": "point",
     "voice": "aura-2-thalia-en"
   },
+  "obstacle_camera_slow": {
+    "bytes": 103724,
+    "heard": "Camera obstacle, slowing.",
+    "recorded": "2026-10-22",
+    "seconds": 2.16,
+    "text": "Camera obstacle. Slowing.",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_camera_stop": {
+    "bytes": 113324,
+    "heard": "Camera obstacle, stopped.",
+    "recorded": "2026-10-22",
+    "seconds": 2.36,
+    "text": "Camera obstacle. Stopped.",
+    "voice": "aura-2-thalia-en"
+  },
+  "obstacle_cleared": {
+    "bytes": 111404,
+    "heard": "Obstacle cleared. Resuming.",
+    "recorded": "2026-10-22",
+    "seconds": 2.32,
+    "text": "Obstacle cleared. Resuming.",
+    "voice": "aura-2-thalia-en"
+  },
   "obstacle_none": {
     "bytes": 66764,
     "heard": "Nothing in front of me.",
@@ -439,12 +632,28 @@
     "text": "Obstacle stop disabled. Password override accepted. Test bench mode active.",
     "voice": "aura-2-thalia-en"
   },
+  "obstacle_stop_enabled": {
+    "bytes": 80684,
+    "heard": "Obstacle stop re enabled.",
+    "recorded": "2026-10-22",
+    "seconds": 1.68,
+    "text": "Obstacle stop re-enabled.",
+    "voice": "aura-2-thalia-en"
+  },
   "out_of_scope": {
     "bytes": 148364,
     "heard": "I can't do that from voice. Please use the dashboard.",
     "recorded": "2026-10-22",
     "seconds": 3.09,
     "text": "I can't do that from voice. Please use the dashboard.",
+    "voice": "aura-2-thalia-en"
+  },
+  "override_rejected": {
+    "bytes": 142124,
+    "heard": "Override rejected. Wrong password.",
+    "recorded": "2026-10-22",
+    "seconds": 2.96,
+    "text": "Override rejected. Wrong password.",
     "voice": "aura-2-thalia-en"
   },
   "person_unknown": {
@@ -455,12 +664,100 @@
     "text": "Unrecognised person.",
     "voice": "aura-2-thalia-en"
   },
+  "pivot_aligning": {
+    "bytes": 32684,
+    "heard": "Aligning.",
+    "recorded": "2026-10-22",
+    "seconds": 0.68,
+    "text": "Aligning.",
+    "voice": "aura-2-thalia-en"
+  },
   "position_unknown": {
     "bytes": 78764,
     "heard": "I don't track my position.",
     "recorded": "2026-10-22",
     "seconds": 1.64,
     "text": "I don't track my position.",
+    "voice": "aura-2-thalia-en"
+  },
+  "queue_cleared": {
+    "bytes": 69164,
+    "heard": "No commands queued.",
+    "recorded": "2026-10-22",
+    "seconds": 1.44,
+    "text": "No commands queued.",
+    "voice": "aura-2-thalia-en"
+  },
+  "recording_marked": {
+    "bytes": 53804,
+    "heard": "Frame marked.",
+    "recorded": "2026-10-22",
+    "seconds": 1.12,
+    "text": "Frame marked.",
+    "voice": "aura-2-thalia-en"
+  },
+  "recording_started": {
+    "bytes": 40364,
+    "heard": "Recording.",
+    "recorded": "2026-10-22",
+    "seconds": 0.84,
+    "text": "Recording.",
+    "voice": "aura-2-thalia-en"
+  },
+  "recording_stopped": {
+    "bytes": 61484,
+    "heard": "Recording stopped.",
+    "recorded": "2026-10-22",
+    "seconds": 1.28,
+    "text": "Recording stopped.",
+    "voice": "aura-2-thalia-en"
+  },
+  "recovery_failed": {
+    "bytes": 105644,
+    "heard": "Can't find the line. Stopping.",
+    "recorded": "2026-10-22",
+    "seconds": 2.2,
+    "text": "Can't find the line. Stopping.",
+    "voice": "aura-2-thalia-en"
+  },
+  "repeat_please": {
+    "bytes": 65324,
+    "heard": "Could you repeat that?",
+    "recorded": "2026-10-22",
+    "seconds": 1.36,
+    "text": "Could you repeat that?",
+    "voice": "aura-2-thalia-en"
+  },
+  "reversing": {
+    "bytes": 38444,
+    "heard": "Reversing.",
+    "recorded": "2026-10-22",
+    "seconds": 0.8,
+    "text": "Reversing.",
+    "voice": "aura-2-thalia-en"
+  },
+  "searching": {
+    "bytes": 65324,
+    "heard": "Searching for the line.",
+    "recorded": "2026-10-22",
+    "seconds": 1.36,
+    "text": "Searching for the line.",
+    "voice": "aura-2-thalia-en"
+  },
+  "speed_limit_reached": {
+    "bytes": 105644,
+    "heard": "Already at maximum speed.",
+    "recorded": "2026-10-22",
+    "seconds": 2.2,
+    "text": "Already at maximum speed.",
+    "voice": "aura-2-thalia-en"
+  },
+  "speed_set": {
+    "bytes": 55724,
+    "heard": "Speed set.",
+    "recorded": "2026-10-22",
+    "seconds": 1.16,
+    "text": "Speed set.",
     "voice": "aura-2-thalia-en"
   },
   "standing_by": {
@@ -511,6 +808,22 @@
     "text": "LiDAR is offline.",
     "voice": "aura-2-thalia-en"
   },
+  "status_line_off": {
+    "bytes": 61484,
+    "heard": "Not on the line.",
+    "recorded": "2026-10-22",
+    "seconds": 1.28,
+    "text": "Not on the line.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_line_on": {
+    "bytes": 44204,
+    "heard": "On the line.",
+    "recorded": "2026-10-22",
+    "seconds": 0.92,
+    "text": "On the line.",
+    "voice": "aura-2-thalia-en"
+  },
   "status_mode_auto": {
     "bytes": 36044,
     "heard": "Auto mode.",
@@ -535,12 +848,80 @@
     "text": "Motors are on.",
     "voice": "aura-2-thalia-en"
   },
+  "status_obstacle_distance": {
+    "pending": true,
+    "text": "Nearest obstacle at {dist} {unit}.",
+    "voice": "aura-2-thalia-en",
+    "wav": false
+  },
+  "status_ok": {
+    "bytes": 74924,
+    "heard": "All systems nominal.",
+    "recorded": "2026-10-22",
+    "seconds": 1.56,
+    "text": "All systems nominal.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_recording_off": {
+    "bytes": 46124,
+    "heard": "Not recording.",
+    "recorded": "2026-10-22",
+    "seconds": 0.96,
+    "text": "Not recording.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_recording_on": {
+    "bytes": 61484,
+    "heard": "Recording is active.",
+    "recorded": "2026-10-22",
+    "seconds": 1.28,
+    "text": "Recording is active.",
+    "voice": "aura-2-thalia-en"
+  },
+  "status_speed_pct": {
+    "pending": true,
+    "text": "Speed is at {pct} percent.",
+    "voice": "aura-2-thalia-en",
+    "wav": false
+  },
   "stuck": {
     "bytes": 135404,
     "heard": "I'm stuck. Need assistance.",
     "recorded": "2026-10-22",
     "seconds": 2.82,
     "text": "I'm stuck. Need assistance.",
+    "voice": "aura-2-thalia-en"
+  },
+  "too_close": {
+    "bytes": 97964,
+    "heard": "Distance too small to be safe.",
+    "recorded": "2026-10-22",
+    "seconds": 2.04,
+    "text": "Distance too small to be safe.",
+    "voice": "aura-2-thalia-en"
+  },
+  "too_far": {
+    "bytes": 90284,
+    "heard": "That distance is out of range.",
+    "recorded": "2026-10-22",
+    "seconds": 1.88,
+    "text": "That distance is out of range.",
+    "voice": "aura-2-thalia-en"
+  },
+  "turning_left": {
+    "bytes": 49964,
+    "heard": "Turning left.",
+    "recorded": "2026-10-22",
+    "seconds": 1.04,
+    "text": "Turning left.",
+    "voice": "aura-2-thalia-en"
+  },
+  "turning_right": {
+    "bytes": 42284,
+    "heard": "Turning right.",
+    "recorded": "2026-10-22",
+    "seconds": 0.88,
+    "text": "Turning right.",
     "voice": "aura-2-thalia-en"
   },
   "understood": {
@@ -581,6 +962,14 @@
     "recorded": "2026-10-22",
     "seconds": 0.76,
     "text": "meters",
+    "voice": "aura-2-thalia-en"
+  },
+  "vision_degraded": {
+    "bytes": 140204,
+    "heard": "Vision degraded: Reducing speed",
+    "recorded": "2026-10-22",
+    "seconds": 2.92,
+    "text": "Vision degraded. Reducing speed.",
     "voice": "aura-2-thalia-en"
   },
   "voice_control_off": {

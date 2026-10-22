@@ -1,0 +1,164 @@
+AGV VOICE PHRASES — COMPLETE LIST
+All phrases for Tarka (aura-2-thalia-en)
+Generated: 2026-10-22
+Total: 111 phrases (60 existing + 51 new/pending)
+================================================================
+
+── EXISTING PHRASES (WAV recorded) ────────────────────────────
+
+  1.  battery_unknown          → "I can't measure the battery."
+  2.  cancelled                → "Cancelled."
+  3.  clarify_default          → "Sorry, I didn't catch that."
+  4.  clarify_direction        → "Sorry, which direction?"
+  5.  clarify_distance         → "Distance?"
+  6.  confirm_prompt           → "Say confirm to go."
+  7.  confirm_timeout          → "No confirmation. Standing by."
+  8.  confirmed                → "Confirmed."
+  9.  controller_unreachable   → "I can't reach the controller."
+ 10.  emergency_stop           → "Stopped."
+ 11.  frag_obstacle_at         → "Obstacle ahead at"
+ 12.  help_summary             → "I can move, stop, and report status."
+ 13.  intro                    → "I'm Tarka. Say stop at any time."
+ 14.  lidar_clear              → "Path clear."
+ 15.  lidar_disabled           → "LiDAR disabled. Password override accepted. Test bench mode active."
+ 16.  lidar_hold               → "Holding — obstacle ahead. Will retry when clear."
+ 17.  motion_authorised        → "Moving."
+ 18.  motion_complete          → "Done."
+ 19.  motors_disabled          → "Motors off."
+ 20.  mute_engaged             → "Voice off."
+ 21.  mute_released            → "Voice on."
+ 22.  num_0                    → "zero"
+ 23.  num_1                    → "one"
+ 24.  num_2                    → "two"
+ 25.  num_3                    → "three"
+ 26.  num_4                    → "four"
+ 27.  num_5                    → "five"
+ 28.  num_6                    → "six"
+ 29.  num_7                    → "seven"
+ 30.  num_8                    → "eight"
+ 31.  num_9                    → "nine"
+ 32.  num_10                   → "ten"
+ 33.  num_11                   → "eleven"
+ 34.  num_12                   → "twelve"
+ 35.  num_13                   → "thirteen"
+ 36.  num_14                   → "fourteen"
+ 37.  num_15                   → "fifteen"
+ 38.  num_16                   → "sixteen"
+ 39.  num_17                   → "seventeen"
+ 40.  num_18                   → "eighteen"
+ 41.  num_19                   → "nineteen"
+ 42.  num_20                   → "twenty"
+ 43.  num_30                   → "thirty"
+ 44.  num_40                   → "forty"
+ 45.  num_50                   → "fifty"
+ 46.  num_60                   → "sixty"
+ 47.  num_70                   → "seventy"
+ 48.  num_80                   → "eighty"
+ 49.  num_90                   → "ninety"
+ 50.  num_100                  → "one hundred"
+ 51.  num_point                → "point"
+ 52.  obstacle_none            → "Nothing in front of me."
+ 53.  obstacle_slow            → "Slowing down. Obstacle nearby."
+ 54.  obstacle_stop            → "Obstacle ahead. Stopping."
+ 55.  obstacle_stop_disabled   → "Obstacle stop disabled. Password override accepted. Test bench mode active."
+ 56.  out_of_scope             → "I can't do that from voice. Please use the dashboard."
+ 57.  person_unknown           → "Unrecognised person."
+ 58.  position_unknown         → "I don't track my position."
+ 59.  standing_by              → "Standing by."
+ 60.  status_camera_offline    → "Camera is offline."
+ 61.  status_camera_online     → "Camera is online."
+ 62.  status_lidar_clear       → "LiDAR is clear."
+ 63.  status_lidar_off         → "LiDAR safety is off."
+ 64.  status_lidar_offline     → "LiDAR is offline."
+ 65.  status_mode_auto         → "Auto mode."
+ 66.  status_mode_manual       → "Manual mode."
+ 67.  status_motors_on         → "Motors are on."
+ 68.  stuck                    → "I'm stuck. Need assistance."
+ 69.  understood               → "Understood."
+ 70.  unit_centimeters         → "centimeters"
+ 71.  unit_degrees             → "degrees"
+ 72.  unit_meter               → "meter"
+ 73.  unit_meters              → "meters"
+ 74.  voice_control_off        → "Voice control isn't switched on. Use the dashboard."
+ 75.  wake_ready               → "Yes?"
+ 76.  who_blind                → "I can't see right now."
+ 77.  who_none                 → "I don't see anyone."
+
+── NEW PHRASES (WAV recorded & cached) ────────────────────────
+   (* = has runtime slot, pre-bake not possible; synthesised live via Deepgram TTS)
+
+  MOTOR / DRIVE STATE
+ 78.  motors_enabled_manual    → "Motors on. Manual mode."
+ 79.  speed_set                → "Speed set."
+ 80.  speed_limit_reached      → "Already at maximum speed."
+
+  MOTION / NAVIGATION FEEDBACK
+ 81.  turning_left             → "Turning left."
+ 82.  turning_right            → "Turning right."
+ 83.  reversing                → "Reversing."
+ 84.  pivot_aligning           → "Aligning."
+ 85.  line_found               → "Line found."
+ 86.  line_lost                → "Line lost. Searching."
+ 87.  searching                → "Searching for the line."
+ 88.  recovery_failed          → "Can't find the line. Stopping."
+
+  OBSTACLE NUANCE
+ 89.  obstacle_camera_slow     → "Camera obstacle. Slowing."
+ 90.  obstacle_camera_stop     → "Camera obstacle. Stopped."
+ 91.  obstacle_cleared         → "Obstacle cleared. Resuming."
+ 92.  lidar_slow               → "Obstacle in slow zone."
+
+  ENCODER / FIRMWARE FAULTS
+ 93.  enc_fault_left           → "Left encoder fault. Falling back."
+ 94.  enc_fault_right          → "Right encoder fault. Falling back."
+ 95.  enc_fault_cleared        → "Encoder recovered."
+ 96.  firmware_old             → "Old firmware detected. Please update."
+ 97.  arduino_timeout          → "Arduino link timed out. Motors off."
+ 98.  arduino_reconnected      → "Arduino link restored."
+
+  CAMERA / VISION
+ 99.  camera_stalled           → "Camera not responding. Motors off."
+100.  camera_recovered         → "Camera is back."
+101.  vision_degraded          → "Vision degraded. Reducing speed."
+
+  RECORDING
+102.  recording_started        → "Recording."
+103.  recording_stopped        → "Recording stopped."
+104.  recording_marked         → "Frame marked."
+105.  disk_almost_full         → "Disk almost full. Recording will stop soon."
+
+  BATTERY / POWER
+106.  battery_critical         → "Battery critical. Please charge immediately."
+107.  battery_ok               → "Battery is fine."
+108.  charging                 → "Charging."
+
+  DIALOGUE / CLARIFICATION EXTRAS
+109.  clarify_speed            → "What speed?"
+110.  clarify_confirm_or_cancel→ "Confirm or cancel?"
+111.  repeat_please            → "Could you repeat that?"
+112.  not_while_moving         → "Can't do that while moving."
+113.  too_far                  → "That distance is out of range."
+114.  too_close                → "Distance too small to be safe."
+115.  command_queued           → "Queued. Will go when clear."
+116.  queue_cleared            → "No commands queued."
+
+  STATUS QUERY RESPONSES  (* = runtime slot)
+117.  status_speed_pct       * → "Speed is at {pct} percent."
+118.  status_line_on           → "On the line."
+119.  status_line_off          → "Not on the line."
+120.  status_obstacle_distance * → "Nearest obstacle at {dist} {unit}."
+121.  status_recording_on      → "Recording is active."
+122.  status_recording_off     → "Not recording."
+123.  status_ok                → "All systems nominal."
+
+  SAFETY OVERRIDES (password-gated)
+124.  obstacle_stop_enabled    → "Obstacle stop re-enabled."
+125.  lidar_enabled_again      → "LiDAR safety restored."
+126.  override_rejected        → "Override rejected. Wrong password."
+
+================================================================
+END OF PHRASE LIST
+All fixed phrases are recorded as WAVs in voice/phrases/ with
+Deepgram Aura (aura-2-thalia-en) and indexed in manifest.json.
+Dynamic phrases with slots (* #117 and #120) synthesize live.
+================================================================

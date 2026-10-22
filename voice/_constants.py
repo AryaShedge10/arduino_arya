@@ -140,6 +140,75 @@ PERSONA_EVENTS = frozenset({
     'mode_changed',        # while enabled, mode flipped (mode slot)
     'obstacle_stop_disabled',     # obstacle_stop True→False (password override)
     'lidar_disabled',             # lidar_enabled True→False (password override)
+
+    # ── Motor / Drive state ──────────────────────────────────────────
+    'motors_enabled_manual',      # motors_enabled with mode=manual (pre-baked WAV variant)
+    'speed_set',                  # speed-set command acknowledged
+    'speed_limit_reached',        # already at 100 %
+
+    # ── Motion / Navigation feedback ────────────────────────────────
+    'turning_left',               # pivot-left executing
+    'turning_right',              # pivot-right executing
+    'reversing',                  # back-direction intent authorised
+    'pivot_aligning',             # heading too far off; aligning before arc
+    'line_found',                 # line recovered after being lost
+    'line_lost',                  # line lost; starting search
+    'searching',                  # recovery scan in progress
+    'recovery_failed',            # search window expired, stopping
+
+    # ── Obstacle nuance ─────────────────────────────────────────────
+    'obstacle_camera_slow',       # camera-source slow (distinct from lidar_hold)
+    'obstacle_camera_stop',       # camera-source emergency stop
+    'obstacle_cleared',           # camera obstacle gone; resuming
+    'lidar_slow',                 # point in slow zone (not stop zone)
+
+    # ── Encoder / Firmware faults ────────────────────────────────────
+    'enc_fault_left',             # left encoder fault
+    'enc_fault_right',            # right encoder fault
+    'enc_fault_cleared',          # encoder recovered
+    'firmware_old',               # firmware < v2; refusing to drive
+    'arduino_timeout',            # 1-second command timeout hit
+    'arduino_reconnected',        # serial link restored after timeout
+
+    # ── Camera / Vision ──────────────────────────────────────────────
+    'camera_stalled',             # FRAME_STALE_S exceeded; motors off
+    'camera_recovered',           # camera delivering frames again
+    'vision_degraded',            # caution-speed mode active
+
+    # ── Recording ────────────────────────────────────────────────────
+    'recording_started',          # session recording opened
+    'recording_stopped',          # session recording closed
+    'recording_marked',           # operator M-key mark
+    'disk_almost_full',           # AGV_REC_MIN_FREE_GB guard near
+
+    # ── Battery / Power ──────────────────────────────────────────────
+    'battery_critical',           # below critical threshold
+    'battery_ok',                 # response to status query when fine
+    'charging',                   # rover docked and charging
+
+    # ── Dialogue / Clarification extras ─────────────────────────────
+    'clarify_speed',              # speed slot missing
+    'clarify_confirm_or_cancel',  # confirm utterance was ambiguous
+    'repeat_please',              # low-confidence; polite retry
+    'not_while_moving',           # action blocked while driving
+    'too_far',                    # dist_m > MOTION_MAX_DISTANCE_M
+    'too_close',                  # dist_m < MOTION_MIN_DISTANCE_M
+    'command_queued',             # motion accepted; held by obstacle
+    'queue_cleared',              # queue empty / flushed
+
+    # ── Status query responses ────────────────────────────────────────
+    'status_speed_pct',           # "Speed is at {pct} percent."
+    'status_line_on',             # rover is on the line
+    'status_line_off',            # rover is not on the line
+    'status_obstacle_distance',   # "Nearest obstacle at {dist} {unit}."
+    'status_recording_on',        # recording active
+    'status_recording_off',       # not recording
+    'status_ok',                  # all systems nominal
+
+    # ── Safety overrides (password-gated) ────────────────────────────
+    'obstacle_stop_enabled',      # obstacle stop re-enabled
+    'lidar_enabled_again',        # LiDAR safety restored
+    'override_rejected',          # wrong password
 })
 
 # ── Motion intent clamps (Phase 3, intent validator) ───────────────
