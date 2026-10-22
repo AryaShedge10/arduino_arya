@@ -252,6 +252,10 @@ def test_auto_backend_reads_gemini_env_var(monkeypatch=None):
 
 def test_auto_backend_falls_back_to_google_env_var():
     import os
+    # GEMINI_API_KEY genuinely takes precedence, so the fallback can only
+    # be observed with it absent. Clearing it is the point of the test —
+    # without this, a developer with both keys exported fails here.
+    saved = os.environ.pop('GEMINI_API_KEY', None)
     os.environ['GOOGLE_API_KEY'] = 'test-key-456'
     try:
         b = EventExplainer._auto_backend()
@@ -259,6 +263,8 @@ def test_auto_backend_falls_back_to_google_env_var():
         assert b.api_key == 'test-key-456'
     finally:
         os.environ.pop('GOOGLE_API_KEY', None)
+        if saved is not None:
+            os.environ['GEMINI_API_KEY'] = saved
 
 
 def test_auto_backend_returns_none_without_key():

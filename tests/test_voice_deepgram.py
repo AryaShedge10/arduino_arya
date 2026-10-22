@@ -304,6 +304,58 @@ def test_tts_returns_none_on_empty_text():
     assert fake.calls == []
 
 
+# ── WAV header repair (Deepgram /v1/speak streaming quirk) ─────────
+
+
+def _wav_with_data_size(n_data_bytes: int, declared_size: int) -> bytes:
+    """Build a minimal RIFF/WAVE with a controllable data-chunk size."""
+    fmt = struct.pack('<HHIIHH', 1, 1, 16000, 32000, 2, 16)
+    body = b'\x00\x00' * n_data_bytes
+    riff_size = 4 + (8 + len(fmt)) + (8 + declared_size)
+    out = b'RIFF' + struct.pack('<I', riff_size) + b'WAVE'
+    out += b'fmt ' + struct.pack('<I', len(fmt)) + fmt
+    out += b'data' + struct.pack('<I', declared_size) + body
+    return out
+
+
+def test_repair_wav_header_rewrites_oversized_data_size():
+    """The streaming endpoint ships a placeholder data size like
+    2147418112 for a 69 KB file. After repair, both RIFF and data
+    sizes must match the bytes actually present."""
+    from voice.tts import _repair_wav_header
+    bad = _wav_with_data_size(n_data_bytes=200, declared_size=2147418112)
+    fixed = _repair_wav_header(bad)
+    assert fixed != bad, 'a wrong data size must be rewritten'
+    # The fixed file is parseable AND has a correct duration.
+    with wave.open(io.BytesIO(fixed), 'rb') as w:
+        assert w.getnframes() == 200
+        assert w.readframes(w.getnframes()) == b'\x00\x00' * 200
+    # RIFF and data sizes now reflect real byte counts.
+    assert struct.unpack('<I', fixed[4:8])[0] == len(fixed) - 8
+    assert struct.unpack('<I', fixed[12+8+16+4:12+8+16+8])[0] == 400
+
+
+def test_repair_wav_header_leaves_valid_wav_unchanged():
+    from voice.tts import _repair_wav_header
+    good = _wav_with_data_size(n_data_bytes=100, declared_size=200)
+    assert _repair_wav_header(good) == good
+
+
+def test_repair_wav_header_passes_through_garbage():
+    from voice.tts import _repair_wav_header
+    assert _repair_wav_header(b'not a wav') == b'not a wav'
+    assert _repair_wav_header(b'RIFFtoo-short') == b'RIFFtoo-short'
+    assert _repair_wav_header(b'RIFF' + b'\x00'*100 + b'WAVE') == b'RIFF' + b'\x00'*100 + b'WAVE'
+
+
+def test_repair_wav_header_handles_missing_data_chunk():
+    """fmt-only WAV (no data) is not repairable and must be returned as-is."""
+    from voice.tts import _repair_wav_header
+    head = b'RIFF' + b'\x00'*100 + b'WAVE' + b'fmt ' + struct.pack('<I', 16)
+    head += struct.pack('<HHIIHH', 1, 1, 16000, 32000, 2, 16)
+    assert _repair_wav_header(head) == head
+
+
 def test_engine_reports_synth_unavailable_without_key():
     from voice.tts import TtsEngine
     engine = TtsEngine(synthesizer=DeepgramTtsBackend(api_key=''))

@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import struct
 import tempfile
 import subprocess
 import threading
@@ -283,6 +284,39 @@ class SilentTts:
         self.spoken.clear()
 
 
+def _repair_wav_header(data: bytes) -> bytes:
+    """Rewrite RIFF/data chunk sizes to match the bytes actually received.
+
+    Deepgram's ``/v1/speak`` is a streaming endpoint: it streams the
+    ``fmt `` chunk then begins ``data`` before the length is known, so it
+    ships a placeholder size (observed: 2147418112 for a 69 KB file).
+    Python's ``wave`` module trusts that field and reports a nonsense
+    frame count, which makes ``readframes()`` read to EOF by accident
+    rather than by design — it happens to work until it doesn't.
+
+    Fixing the two size fields in place makes the file a valid WAV
+    regardless of what the sender declared. If the bytes are not a
+    RIFF/WAVE with a 16-byte fmt chunk, they're returned untouched.
+    """
+    if len(data) < 44 or data[:4] != b'RIFF' or data[8:12] != b'WAVE':
+        return data
+    if data[12:16] != b'fmt ':
+        return data
+
+    fmt_size = struct.unpack('<I', data[16:20])[0]
+    data_off = 12 + 8 + fmt_size
+    if data[20 + fmt_size:24 + fmt_size] != b'data':
+        return data
+    if len(data) < data_off + 8:
+        return data
+
+    payload = len(data) - (data_off + 8)
+    out = bytearray(data)
+    struct.pack_into('<I', out, 4, len(data) - 8)        # RIFF size
+    struct.pack_into('<I', out, data_off + 4, payload)    # data size
+    return bytes(out)
+
+
 class DeepgramTtsBackend:
     """Deepgram Aura text-to-speech. Used for dynamic utterances the
     phrase cache misses.
@@ -353,7 +387,7 @@ class DeepgramTtsBackend:
                 log.warning('deepgram tts HTTP %s: %s',
                             response.status_code, response.text[:200])
                 return None
-            return response.content
+            return _repair_wav_header(response.content)
         except Exception as exc:
             log.warning('deepgram tts failed: %s', exc)
             return None

@@ -20,6 +20,7 @@ from pathlib import Path
 from voice.tts import (
     AUDIO_EXTS,
     PHRASES_DIR,
+    DeepgramTtsBackend,
     PhraseCache,
     SilentTts,
     SpokenPhrase,
@@ -174,9 +175,17 @@ class FakePlayback:
 
 
 class RecordingTts(TtsEngine):
-    """Like TtsEngine but with a fake playback so tests don't touch audio."""
+    """Like TtsEngine but with a fake playback so tests don't touch audio.
+
+    Synthesizer is pinned off. Without this, TtsEngine builds a real
+    Deepgram backend, and on any developer machine that has
+    $DEEPGRAM_API_KEY exported the "no audio" tests would silently
+    synthesise over the network and pass or fail depending on whether a
+    key happened to be in the environment.
+    """
     def __init__(self, cache: PhraseCache):
-        super().__init__(cache=cache, playback=FakePlayback())
+        super().__init__(cache=cache, playback=FakePlayback(),
+                         synthesizer=DeepgramTtsBackend(api_key=''))
 
 
 def test_speak_plays_cached_phrase():
