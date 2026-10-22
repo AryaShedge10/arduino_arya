@@ -31,6 +31,16 @@ it every tick. Two settings live there:
   max_speed_pct  master speed limit, 10-100 % of full PWM. Every other speed
                  (line following, caution, obstacle slow-down, turning,
                  search) is scaled by it. Survives restarts.
+  lidar_*        obstacle-safety zones for the rotating LiDAR, tuned from the
+                 dashboard's LiDAR tab. lidar_enabled is the master switch
+                 (disabling it needs the password, so a stray browser tab
+                 can't quietly disarm the rover); lidar_stop_dist_m hard-stops
+                 below that range, lidar_slow_dist_m caps speed at
+                 lidar_slow_v_mps between the two; lidar_stale_ms is the
+                 sensor watchdog (no fresh sample in that time = stop);
+                 lidar_sector_deg is the sector-map resolution. Every value
+                 is clamped on the way in *and* on the way out, and the slow
+                 zone is always held clear of the stop zone.
 """
 
 from __future__ import annotations
@@ -42,13 +52,28 @@ import tempfile
 import time
 
 from config import (
-    CLOSED_LOOP, DEFAULT_SPEED_PCT, REC_DEFAULT_RATE_HZ, REC_MODE_DEFAULT, SPEED_MAX_PCT, SPEED_MIN_PCT, TELEMETRY_DIR,
+    CLOSED_LOOP, DEFAULT_SPEED_PCT, LIDAR_SECTOR_DEG, LIDAR_SLOW_DIST_M,
+    LIDAR_SLOW_V_MPS, LIDAR_STOP_DIST_M, LIDAR_STALE_MS, REC_DEFAULT_RATE_HZ,
+    REC_MODE_DEFAULT, SPEED_MAX_PCT, SPEED_MIN_PCT, TELEMETRY_DIR,
 )
 
 CONTROL_PATH = os.path.join(TELEMETRY_DIR, 'control.json')
 MANUAL_STALE_S = 0.4
 REC_MODES = ('continuous', 'triggered')
 _DEFAULT_REC_MODE = REC_MODE_DEFAULT if REC_MODE_DEFAULT in REC_MODES else 'continuous'
+
+# ── LiDAR safety knobs ──────────────────────────────────────────────
+# Hard limits. A typo in the dashboard (or a hand-edited control.json)
+# must never be able to set a stop distance the rover cannot react to.
+LIDAR_STOP_MIN_M, LIDAR_STOP_MAX_M = 0.20, 1.50
+LIDAR_SLOW_MIN_M, LIDAR_SLOW_MAX_M = 0.30, 3.00
+LIDAR_SLOW_V_MIN, LIDAR_SLOW_V_MAX = 0.05, 0.50
+LIDAR_STALE_MIN_MS, LIDAR_STALE_MAX_MS = 100, 1000
+LIDAR_SECTOR_MIN_DEG, LIDAR_SECTOR_MAX_DEG = 15, 90
+# The slow zone must stay clear of the stop zone, whatever was sent.
+LIDAR_SLOW_GAP_M = 0.10
+# sector_deg must divide 360 evenly or the last sector is a sliver.
+LIDAR_SECTOR_CHOICES = (15, 20, 30, 45, 60, 90)
 
 
 def _rec_mode(value) -> str:
@@ -57,6 +82,71 @@ def _rec_mode(value) -> str:
 
 def clamp_speed(pct: float) -> int:
     return int(round(max(SPEED_MIN_PCT, min(SPEED_MAX_PCT, float(pct)))))
+
+
+def clamp_lidar_stop_dist_m(v) -> float:
+    """Distance in front that triggers a hard stop, in metres."""
+    return round(max(LIDAR_STOP_MIN_M, min(LIDAR_STOP_MAX_M, float(v))), 3)
+
+
+def clamp_lidar_slow_dist_m(v) -> float:
+    """Distance in front that triggers the slow-down, in metres."""
+    return round(max(LIDAR_SLOW_MIN_M, min(LIDAR_SLOW_MAX_M, float(v))), 3)
+
+
+def clamp_lidar_slow_v_mps(v) -> float:
+    """Speed cap while inside the slow zone, in m/s."""
+    return round(max(LIDAR_SLOW_V_MIN, min(LIDAR_SLOW_V_MAX, float(v))), 3)
+
+
+def clamp_lidar_stale_ms(v) -> int:
+    """No fresh sample within this many ms = sensor fault = stop."""
+    return int(round(max(LIDAR_STALE_MIN_MS, min(LIDAR_STALE_MAX_MS, float(v)))))
+
+
+def clamp_lidar_sector_deg(v) -> int:
+    """Sector width. Snapped to an exact divisor of 360 so the sector map
+    has no sliver sector and ``round(360 / deg)`` is exact."""
+    v = max(LIDAR_SECTOR_MIN_DEG, min(LIDAR_SECTOR_MAX_DEG, int(round(float(v)))))
+    return min(LIDAR_SECTOR_CHOICES, key=lambda c: (abs(c - v), c))
+
+
+# key -> clamp, for write_state(lidar={...}) and read_state()
+LIDAR_CLAMPS = {
+    'lidar_stop_dist_m': clamp_lidar_stop_dist_m,
+    'lidar_slow_dist_m': clamp_lidar_slow_dist_m,
+    'lidar_slow_v_mps': clamp_lidar_slow_v_mps,
+    'lidar_stale_ms': clamp_lidar_stale_ms,
+    'lidar_sector_deg': clamp_lidar_sector_deg,
+}
+# Factory defaults for the same keys (from config.py).
+_LIDAR_DEFAULTS = {
+    'lidar_stop_dist_m': LIDAR_STOP_DIST_M,
+    'lidar_slow_dist_m': LIDAR_SLOW_DIST_M,
+    'lidar_slow_v_mps': LIDAR_SLOW_V_MPS,
+    'lidar_stale_ms': LIDAR_STALE_MS,
+    'lidar_sector_deg': LIDAR_SECTOR_DEG,
+}
+# What the dashboard renders its sliders from. The server clamps anyway;
+# these only keep the UI honest about what a value will actually become.
+LIDAR_LIMITS = {
+    'lidar_stop_dist_m': {'min': LIDAR_STOP_MIN_M, 'max': LIDAR_STOP_MAX_M,
+                          'step': 0.05, 'unit': 'm',
+                          'label': 'Stop distance'},
+    'lidar_slow_dist_m': {'min': LIDAR_SLOW_MIN_M, 'max': LIDAR_SLOW_MAX_M,
+                          'step': 0.05, 'unit': 'm',
+                          'label': 'Slow-down distance'},
+    'lidar_slow_v_mps': {'min': LIDAR_SLOW_V_MIN, 'max': LIDAR_SLOW_V_MAX,
+                         'step': 0.01, 'unit': 'm/s',
+                         'label': 'Slow-down speed'},
+    'lidar_stale_ms': {'min': LIDAR_STALE_MIN_MS, 'max': LIDAR_STALE_MAX_MS,
+                       'step': 10, 'unit': 'ms',
+                       'label': 'Stale watchdog'},
+    'lidar_sector_deg': {'min': LIDAR_SECTOR_MIN_DEG, 'max': LIDAR_SECTOR_MAX_DEG,
+                         'step': 5, 'unit': '°',
+                         'label': 'Sector width',
+                         'choices': list(LIDAR_SECTOR_CHOICES)},
+}
 
 
 def _unit(x) -> float:
@@ -70,7 +160,13 @@ def read_state(path: str = CONTROL_PATH) -> dict:
              'manual_l': None, 'manual_r': None, 'manual_raw': False, 'enc_zero_ts': 0.0,
              'record': False, 'record_rate': REC_DEFAULT_RATE_HZ, 'record_views': False,
              'record_mark_ts': 0.0, 'record_mark_note': '', 'record_mode': _DEFAULT_REC_MODE,
-             'closed_loop': CLOSED_LOOP}
+             'closed_loop': CLOSED_LOOP,
+             'lidar_enabled': True,
+             'lidar_stop_dist_m': LIDAR_STOP_DIST_M,
+             'lidar_slow_dist_m': LIDAR_SLOW_DIST_M,
+             'lidar_slow_v_mps': LIDAR_SLOW_V_MPS,
+             'lidar_stale_ms': LIDAR_STALE_MS,
+             'lidar_sector_deg': LIDAR_SECTOR_DEG}
     try:
         with open(path, 'r', encoding='utf-8') as fh:
             raw = json.load(fh)
@@ -89,6 +185,15 @@ def read_state(path: str = CONTROL_PATH) -> dict:
         state['record_mode'] = _rec_mode(raw.get('record_mode'))
         state['record_mark_ts'] = float(raw.get('record_mark_ts', 0.0))
         state['record_mark_note'] = str(raw.get('record_mark_note', ''))[:200]
+        # LiDAR zone knobs. Read back through the same clamps that
+        # write_state uses, so a hand-edited file can't widen the ranges.
+        state['lidar_enabled'] = bool(raw.get('lidar_enabled', True))
+        for key, clamp in LIDAR_CLAMPS.items():
+            state[key] = clamp(raw.get(key, _LIDAR_DEFAULTS[key]))
+        # The slow zone has to sit clear of the stop zone, or the rover
+        # would brake to a crawl inside the distance it must stop at.
+        floor = min(LIDAR_SLOW_MAX_M, state['lidar_stop_dist_m'] + LIDAR_SLOW_GAP_M)
+        state['lidar_slow_dist_m'] = max(state['lidar_slow_dist_m'], floor)
         if raw.get('manual_l') is not None and raw.get('manual_r') is not None:
             state['manual_l'], state['manual_r'] = _unit(raw['manual_l']), _unit(raw['manual_r'])
             state['manual_raw'] = bool(raw.get('manual_raw', False))
@@ -100,7 +205,7 @@ def read_state(path: str = CONTROL_PATH) -> dict:
 def write_state(enabled=None, max_speed_pct=None, mode=None, manual=None,
                 obstacle_stop=None, manual_lr=None, closed_loop=None, raw=False, enc_zero=False,
                 record=None, record_rate=None, record_views=None, record_mark=None,
-                record_mode=None, path: str = CONTROL_PATH) -> dict:
+                record_mode=None, lidar=None, path: str = CONTROL_PATH) -> dict:
     """Update only the given fields, atomically; returns the new state.
 
     ``manual`` is a (v, w) pair in -1..1; ``manual_lr`` a (left, right) pair. Stopping (enabled=False) or leaving
@@ -154,6 +259,19 @@ def write_state(enabled=None, max_speed_pct=None, mode=None, manual=None,
         if record_mark is not None:
             state['record_mark_ts'] = time.time()
             state['record_mark_note'] = str(record_mark)[:200]
+        if lidar:
+            for key, value in lidar.items():
+                if value is None:
+                    continue
+                if key == 'lidar_enabled':
+                    state['lidar_enabled'] = bool(value)
+                elif key in LIDAR_CLAMPS:
+                    state[key] = LIDAR_CLAMPS[key](value)
+                else:
+                    raise ValueError(f'unknown lidar setting: {key!r}')
+            floor = min(LIDAR_SLOW_MAX_M,
+                        state['lidar_stop_dist_m'] + LIDAR_SLOW_GAP_M)
+            state['lidar_slow_dist_m'] = max(state['lidar_slow_dist_m'], floor)
         state['ts'] = time.time()
         fd, tmp = tempfile.mkstemp(prefix='.ctl-', dir=os.path.dirname(path) or '.')
         try:

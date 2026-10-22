@@ -2,9 +2,13 @@
  *
  * The browser fetches /cam/mjpeg (multipart/x-mixed-replace) directly
  * via the <img> tag, so the only JS work is the live status pill +
- * dot + frame-age counter. We poll /cam/status every 1s while the tab
- * is visible and stop polling while it's hidden — there's no point
- * asking for FPS the user can't see.
+ * dot + frame-age counter, plus one chip in the summary strip.
+ *
+ * /cam/status is polled every 1s whether or not the tab is open: the
+ * strip chip is the only place the operator sees this camera while
+ * they work in another tab, so the poll has to keep running. The tab's
+ * own fields (resolution, FPS, frame age, the stream <img>) are only
+ * touched when the tab is visible.
  */
 (function() {
   const $ = (id) => document.getElementById(id);
@@ -24,9 +28,33 @@
     else { chip.classList.add('cam-pending'); chip.textContent = 'offline'; }
   }
 
+  // Summary-strip chip for the USB camera. The AGV pipeline's own camera
+  // has a chip next to this one (sum-cam) fed by telemetry; this one is fed
+  // from /cam/status so it stays honest when the AGV itself isn't running.
+  function setStrip(s, connected, fresh) {
+    if (!$('sum-usbcam')) return;
+    const txt = fresh ? 'OK' : connected ? 'STALE' : 'NONE';
+    const cls = fresh ? 'good' : connected ? 'warn' : 'bad';
+    chip('sum-usbcam', txt, cls);
+    $('sum-usbcam').title = [
+      'USB camera',
+      s.device || 'no device',
+      s.width && s.height ? `${s.width}×${s.height}` : '',
+      s.fps != null ? s.fps.toFixed(1) + ' fps' : '',
+      connected ? 'frame age ' + fmtAge(s.age_ms) : 'not streaming',
+      s.last_error || '',
+    ].filter(Boolean).join(' · ');
+  }
+
+  function setStripDown() {
+    if (!$('sum-usbcam')) return;
+    chip('sum-usbcam', 'DOWN', 'bad');
+    $('sum-usbcam').title = 'USB camera · /cam/status did not answer';
+  }
+
   async function refresh() {
     const tab = $('tab-cam');
-    if (!tab || tab.hidden) return;
+    const visible = !!tab && !tab.hidden;
     try {
       const r = await fetch('/cam/status', { cache: 'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -36,6 +64,9 @@
       const connected = !!s.connected;
       const age = s.age_ms;
       const fresh = connected && age != null && age < 2000;
+
+      setStrip(s, connected, fresh);
+      if (!visible) return;
 
       $('cam-dev').textContent    = s.device || '—';
       $('cam-res').textContent    = s.width && s.height ? `${s.width}×${s.height}` : '—';
@@ -79,36 +110,16 @@
         }
       }
     } catch (e) {
+      setStripDown();
+      if (!visible) return;
       $('cam-status').textContent = 'no dashboard';
       setChip('stale');
     }
   }
 
-  let pollTimer = null;
-  function startPolling() {
-    if (pollTimer) return;
-    refresh();
-    pollTimer = setInterval(refresh, 1000);
-  }
-  function stopPolling() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  }
-
-  // Watch the tab visibility via a small observer; clicks on the tab
-  // button flip hidden via the existing tab-show code, so we listen
-  // for the click and check hidden state.
-  const btn = $('tabbtn-cam');
-  const tab = $('tab-cam');
-  if (btn && tab) {
-    btn.addEventListener('click', () => {
-      // The dashboard's tab switch code runs first; let the click settle.
-      setTimeout(() => {
-        if (tab.hidden) stopPolling();
-        else startPolling();
-      }, 0);
-    });
-    if (!tab.hidden) startPolling();
-  }
-  // Eager kick so the dot lights up even before the user clicks the tab.
-  if (!tab || !tab.hidden) startPolling();
+  // One timer for the page. It used to be stopped while the tab was hidden,
+  // which would have frozen the strip chip at whatever the camera was doing
+  // when the operator last looked at it.
+  refresh();
+  setInterval(refresh, 1000);
 })();

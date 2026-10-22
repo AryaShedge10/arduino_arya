@@ -81,6 +81,23 @@ class TelemetryState:
     lidar_connected: bool = False
     lidar_error: Optional[str] = None
     lidar_distance_mm: float = 0.0
+    # Rotating-LiDAR obstacle safety (lidar_safety.py). None means "no
+    # reading" — the dashboard shows "—" rather than a misleading 0.0.
+    lidar_min_front_m: Optional[float] = None    # nearest obstacle ahead
+    lidar_sector_mins: Optional[list] = None     # per-sector minimum, metres
+    lidar_age_ms: Optional[int] = None           # age of the newest sample
+    lidar_estop_reason: str = ''                 # why safety is engaged
+    lidar_action: str = 'CLEAR'                  # CLEAR / SLOW / ESTOP
+    lidar_stop_dist_m: float = 0.0               # the zones in force
+    lidar_slow_dist_m: float = 0.0
+    lidar_slow_v_mps: float = 0.0
+    lidar_enabled: bool = False
+    # LiDAR connection details (lidar_safety.py). Surfaced to the
+    # dashboard so the operator can confirm which port / baud / sector
+    # width the live feed is using without SSH.
+    lidar_port: str = ''
+    lidar_baud: int = 0
+    lidar_sector_deg: int = 0
     final_command: str = 'S'
     decision_reason: str = ''
     sensor_probes: list[dict] = field(default_factory=list)

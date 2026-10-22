@@ -14,7 +14,7 @@ def _r(v, n):
 
 def build_log_row(*, seq, frame_mono, t_mono, ctl, enabled, speed_pct, line, obst,
                   enforce, d, v_t, w_t, wheels, snap, link_ok, vision_ms,
-                  curve_px, look_px, closed_wanted, fw_ready) -> dict:
+                  curve_px, look_px, closed_wanted, fw_ready, req_mono=None) -> dict:
     g = lambda name, default=0: getattr(snap, name, default)  # noqa: E731
     meas_l = g('meas_ticks_left') / TICKS_PER_M
     meas_r = g('meas_ticks_right') / TICKS_PER_M
@@ -58,13 +58,24 @@ def build_log_row(*, seq, frame_mono, t_mono, ctl, enabled, speed_pct, line, obs
                 'fault_bits': faults, 'fault_l': bool(faults & 1), 'fault_r': bool(faults & 2),
                 'ack_mono': ack, 'ack_age_ms': ack_age, 'fw': g('firmware_version', None)},
         'link_ok': link_ok, 'vision_ms': round(vision_ms, 1),
+        'req_mono': req_mono,
     }
+
+
+_FAULT_NAMES = (1, 'enc_fault_l'), (2, 'enc_fault_r'), (4, 'enc_fault_warn')
+
+
+def decode_faults(bits) -> list:
+    """Map the firmware's fault-bits byte into a list of named errors (empty when 0)."""
+    if not isinstance(bits, int) or bits <= 0:
+        return []
+    return [name for mask, name in _FAULT_NAMES if bits & mask]
 
 
 def build_telem_row(row: dict) -> dict:
     line, obst = row.get('line', {}), row.get('obstacle', {})
     dec, w, enc = row.get('decision', {}), row.get('wheels', {}), row.get('enc', {})
-    return {
+    out = {
         't': row.get('t'), 't_mono': row.get('t_mono'), 'seq': row.get('seq'),
         'enabled': row.get('enabled'), 'mode': row.get('mode'),
         'found': line.get('found'), 'offset_m': line.get('offset_m'),
@@ -77,3 +88,12 @@ def build_telem_row(row: dict) -> dict:
         'applied_l': w.get('applied_l'), 'applied_r': w.get('applied_r'),
         'fault_bits': enc.get('fault_bits'),
     }
+    errors = decode_faults(enc.get('fault_bits'))
+    if errors:
+        out['errors'] = errors
+    req_mono = row.get('req_mono')
+    ack_mono = enc.get('ack_mono')
+    if isinstance(req_mono, (int, float)) and isinstance(ack_mono, (int, float)) \
+            and not isinstance(req_mono, bool) and not isinstance(ack_mono, bool):
+        out['latency_ms'] = round((ack_mono - req_mono) * 1000.0, 2)
+    return out

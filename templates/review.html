@@ -239,7 +239,12 @@
       } catch (e) { $('meta').textContent = `${rows.length} frames`; }
       await getFt();          // no network unless there is a valid session
       hideSignin();
-      applyFilter(); renderEvents(); show(0);
+      applyFilter(); renderEvents();
+      // Deep-link from the dashboard timeline card: jump to i=<N> from the hash.
+      let startI = 0;
+      const hashMatch = /(?:#|&)i=(\d+)/.exec(location.hash || '');
+      if (hashMatch) startI = Math.min(Math.max(0, parseInt(hashMatch[1], 10)), Math.max(0, rows.length - 1));
+      show(startI);
       checkBuild();
     }
     async function checkBuild() {

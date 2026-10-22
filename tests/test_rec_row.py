@@ -23,7 +23,8 @@ def _args():
     return dict(seq=7, frame_mono=99.8, t_mono=100.0, ctl={'mode': 'AUTO'}, enabled=True,
                 speed_pct=60, line=line, obst=obst, enforce=True, d=d, v_t=0.2234, w_t=-1.26,
                 wheels=wheels, snap=snap, link_ok=True, vision_ms=12.345,
-                curve_px=[[1, 2]], look_px=[3, 4], closed_wanted=True, fw_ready=False)
+                curve_px=[[1, 2]], look_px=[3, 4], closed_wanted=True, fw_ready=False,
+                req_mono=99.85)
 
 
 def test_legacy_values():
@@ -78,9 +79,37 @@ def test_telem_row():
     t = rec_row.build_telem_row(row)
     assert list(t) == ['t', 't_mono', 'seq', 'enabled', 'mode', 'found', 'offset_m', 'angle_deg',
                        'obst_raw', 'v', 'omega', 'ticks_l', 'ticks_r', 'ack_mono', 'meas_l_mps',
-                       'meas_r_mps', 'tgt_l_mps', 'tgt_r_mps', 'applied_l', 'applied_r', 'fault_bits']
+                       'meas_r_mps', 'tgt_l_mps', 'tgt_r_mps', 'applied_l', 'applied_r',
+                       'fault_bits', 'errors', 'latency_ms']
     assert t['t'] is None and t['obst_raw'] == 'SLOW' and t['ticks_l'] == 1500
+    # fault_l = False (snap.fault_bits=2 → bit 1 unset), fault_r = True → errors only when at least one
+    assert t['errors'] == ['enc_fault_r']
+    # latency_ms = (ack_mono - req_mono) * 1000 = (99.9 - 99.85) * 1000 = 50.0
+    assert t['latency_ms'] == round((99.9 - 99.85) * 1000.0, 2)
     json.dumps(t)
+
+
+def test_telem_row_no_errors_no_latency():
+    """When fault_bits=0 and req_mono is missing, the optional keys are omitted."""
+    a = _args()
+    a['snap'] = NS(applied_left=0, applied_right=0, meas_ticks_left=0, meas_ticks_right=0,
+                    encoder_left=0, encoder_right=0, enc_zero_left=0, enc_zero_right=0,
+                    fault_bits=0, last_ack_monotonic=None, fw_mode='P',
+                    pwm_target_left=0, pwm_target_right=0, firmware_version='v2')
+    row = rec_row.build_log_row(**a)
+    t = rec_row.build_telem_row(row)
+    assert 'errors' not in t
+    assert 'latency_ms' not in t
+    json.dumps(t)
+
+
+def test_decode_faults():
+    assert rec_row.decode_faults(0) == []
+    assert rec_row.decode_faults(1) == ['enc_fault_l']
+    assert rec_row.decode_faults(2) == ['enc_fault_r']
+    assert rec_row.decode_faults(3) == ['enc_fault_l', 'enc_fault_r']
+    assert rec_row.decode_faults(7) == ['enc_fault_l', 'enc_fault_r', 'enc_fault_warn']
+    assert rec_row.decode_faults(None) == []
 
 
 if __name__ == '__main__':

@@ -85,10 +85,20 @@ def _sort_key(r):
     return (0, i) if isinstance(i, (int, float)) and not isinstance(i, bool) else (1, 0)
 
 
-def load_rows(folder, sort=True) -> list:
+def load_rows(folder, sort=True, *, row_from=None, row_to=None) -> list:
+    """Load all rows; optionally slice to a [row_from:row_to+1] index range after sort.
+
+    Negative indices are accepted (Python list semantics). `row_from`/`row_to`
+    are silently clamped to the row list bounds; callers can compare the
+    returned length against `row_to - row_from + 1` to detect out-of-range.
+    """
     rows = list(iter_rows(folder))
     if sort:
         rows.sort(key=_sort_key)
+    if row_from is not None or row_to is not None:
+        lo = row_from if row_from is not None else 0
+        hi = (row_to + 1) if row_to is not None else len(rows)
+        rows = rows[lo:hi]
     return rows
 
 
