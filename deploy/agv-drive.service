@@ -1,0 +1,25 @@
+# Template: deploy/install.sh substitutes the user and repo path, then installs it
+# as /etc/systemd/system/agv-drive.service. Do not copy this file by hand.
+[Unit]
+Description=AGV drive loop (agv_drive_arduino.py)
+# Starts after the dashboard process. Wants= (not Requires=) so a web.py crash
+# never takes the drive loop down. network.target only, never network-online.
+After=network.target agv-web.service
+Wants=agv-web.service
+
+[Service]
+Type=simple
+User=@AGV_USER@
+SupplementaryGroups=dialout video
+WorkingDirectory=@AGV_DIR@
+Environment=PYTHONPATH=@AGV_DIR@
+Environment=AGV_DASHBOARD_DIR=/tmp/agv-dashboard
+Environment=AGV_SHOW_WINDOW=0
+ExecStart=/usr/bin/python3 @AGV_DIR@/agv_drive_arduino.py
+Restart=always
+RestartSec=3
+StandardOutput=append:@AGV_DIR@/logs/agv.log
+StandardError=append:@AGV_DIR@/logs/agv.log
+
+[Install]
+WantedBy=multi-user.target

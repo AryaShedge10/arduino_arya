@@ -1,0 +1,22 @@
+# Template: deploy/install.sh substitutes the user and repo path, then installs it
+# as /etc/systemd/system/agv-web.service. Do not copy this file by hand.
+[Unit]
+Description=AGV web dashboard (web.py)
+# network.target only: a missing or slow network must never block the AGV.
+After=network.target
+
+[Service]
+Type=simple
+User=@AGV_USER@
+SupplementaryGroups=dialout video
+WorkingDirectory=@AGV_DIR@
+Environment=PYTHONPATH=@AGV_DIR@
+Environment=AGV_DASHBOARD_DIR=/tmp/agv-dashboard
+ExecStart=/usr/bin/python3 @AGV_DIR@/web.py
+Restart=always
+RestartSec=3
+StandardOutput=append:@AGV_DIR@/logs/web.log
+StandardError=append:@AGV_DIR@/logs/web.log
+
+[Install]
+WantedBy=multi-user.target

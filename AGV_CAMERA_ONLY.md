@@ -1,5 +1,15 @@
-agv_main.py already handles missing hardware gracefully:
+# Camera-only use
 
-- No LiDAR (/dev/ttyUSB0 missing) → decision.py:265-275 sets status to CAMERA ONLY | LiDAR unavailable and the detector keeps running.
-- No STM32 (/dev/ttyTHS1 missing or no ACK) → decision.py:278-283 forces final_command = 'S' purely as a safety stop, but the camera, detector, and HUD are completely independent of that flag.
-- Camera + detector + HUD all keep working. The "STM32 WATCHDOG" text in the top status bar is just a status string — it doesn't stop frames from being captured, detected, or published.
+Two ways to run without the Arduino chassis or LiDAR:
+
+- `python3 agv_cam_only.py`: camera + yellow-line detector + a local OpenCV
+  window (`AGV_SHOW_WINDOW=0` for headless, `AGV_CAMERA_BACKEND=fake` for a
+  synthetic source). No dashboard, no motors.
+- `./agv_run.sh` (or the systemd services, see "Standalone mode" in
+  `README_AGV.md`): the full pipeline in `agv_drive_arduino.py`. LiDAR is
+  optional; the camera, detector and dashboard keep running without it. A
+  missing Arduino link or camera frame ramps the motors to 0 for safety but
+  does not stop frame capture or the dashboard.
+
+(This file used to describe `agv_main.py` and an STM32 controller; neither
+exists in this repo any more.)

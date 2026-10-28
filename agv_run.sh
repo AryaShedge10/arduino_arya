@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the AGV that drives the Arduino chassis, from /home/deep/arduino/.
+# Run the AGV that drives the Arduino chassis, from the repo directory (this script finds it itself).
 # Camera + decision + telemetry + web dashboard + Arduino — no STM, no
 # LiDAR. The Arduino serial port defaults to /dev/ttyACM0.
 #

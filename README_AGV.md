@@ -16,6 +16,57 @@ Camera (IMX219, ~1 m high, ~45 deg down) -> `vision.py` -> `decision.py` -> `mot
 - Obstacle STOP (camera) -> emergency stop. Obstacle SLOW -> half speed.
 - Without firmware v2 (`ACK2` replies) the AGV refuses to drive.
 
+## Standalone mode (AGV hosts its own Wi-Fi)
+
+The Jetson boots, starts the AGV software, and hosts a Wi-Fi hotspot. Phone:
+join the hotspot, open `http://10.42.0.1:5000`, sign in, drive. No internet or
+shared network is needed. The AGV still boots with the motors **OFF**; START
+needs the dashboard password, STOP never does. The hotspot password and the
+dashboard password are separate things.
+
+### One-time setup (on the Jetson, over Ethernet or USB for SSH)
+```
+iw list | grep -A8 'Supported interface modes'    # must list "* AP", else stop
+nmcli device                                       # note the wifi device name
+cp deploy/hotspot.env.example deploy/hotspot.env   # set SSID/password/iface
+chmod 600 deploy/hotspot.env                       # git-ignored; never commit it
+sudo ./deploy/setup_hotspot.sh [--disable-others]  # drops any Wi-Fi SSH session
+sudo ./deploy/install.sh                           # installs agv-web + agv-drive
+```
+`setup_hotspot.sh` is safe to re-run (it updates the profile). It lists other
+saved Wi-Fi profiles that could win the radio at boot; `--disable-others`
+stops them auto-connecting (restored by `uninstall.sh --hotspot`). The
+password must be 8-63 characters.
+
+### Connect from a phone
+Join `AGV-Bekart` (or your SSID) with the hotspot password, open
+`http://10.42.0.1:5000`, sign in, press START. The phone may warn that the
+network has no internet; stay connected. There is no mDNS and no captive portal.
+
+### Logs and control
+```
+tail -f logs/web.log logs/agv.log
+journalctl -u agv-web -u agv-drive -f
+systemctl status agv-web agv-drive
+sudo systemctl restart agv-web agv-drive
+sudo systemctl disable --now agv-drive agv-web    # turn autostart off
+```
+`./agv_run.sh` still works for manual runs (stop the services first so they do
+not fight over the camera and serial port).
+
+### Recovery if the hotspot misbehaves
+SSH in over Ethernet or USB (device mode: `ssh <user>@192.168.55.1` on Jetson
+dev kits). Then `sudo nmcli connection down agv-hotspot`, or remove everything with
+`sudo ./deploy/uninstall.sh --hotspot`. With a keyboard and screen, the same
+commands work at the console.
+
+### When the phone goes away
+Manual driving stops within `MANUAL_STALE_S` (0.4 s) of the last command, and
+the firmware ramps to 0 after 1 s without a valid command. **In AUTO mode the
+AGV keeps following the line after the phone disconnects** until STOP, an
+obstacle, or line loss. An opt-in fix is provided, not applied:
+`deploy/optional/dashboard_heartbeat.patch` (`AGV_UI_HEARTBEAT_S`).
+
 ## Measure first, then tune (all via `AGV_*` env vars, see `config.py`)
 | Setting | Meaning |
 |---|---|

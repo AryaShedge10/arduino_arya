@@ -1,0 +1,92 @@
+# Optional: dashboard heartbeat (NOT applied; reviewable behaviour change)
+#
+diff --git a/agv_drive_arduino.py b/agv_drive_arduino.py
+index 39c51cf..5b819c0 100644
+--- a/agv_drive_arduino.py
++++ b/agv_drive_arduino.py
+@@ -27,7 +27,8 @@ import numpy as np
+ from arduino import Arduino, ArduinoReport
+ from camera import Camera, CameraReport
+ from config import (
+-    LOG_FILE, MANUAL_TURN_FRAC, OBST_ENABLED, SHOW_WINDOW, TICKS_PER_M, V_MAX,
++    LOG_FILE, MANUAL_TURN_FRAC, OBST_ENABLED, SHOW_WINDOW, TICKS_PER_M, UI_HEARTBEAT_S,
++    UI_SEEN_PATH, V_MAX,
+     WHEEL_DIAMETER_M, WHEEL_MAX_MPS,
+     LIVE_FRAMES_DIR, LIVE_FRAMES_ENABLED, LIVE_FRAMES_HZ,
+ )
+@@ -328,6 +329,15 @@ class AGV:
+         self._vis = vis
+ 
+         ctl = self.control.state()
++        if UI_HEARTBEAT_S > 0 and ctl['enabled']:
++            try:
++                age = time.time() - os.stat(UI_SEEN_PATH).st_mtime
++            except OSError:
++                age = float('inf')
++            if age > UI_HEARTBEAT_S:
++                log.warning('[Heartbeat] no dashboard for %.1fs - motors OFF', age)
++                write_state(enabled=False)      # same write STOP does
++                ctl = self.control.state()
+         if ctl['enc_zero_ts'] > self._enc_zero_seen:
+             self._enc_zero_seen = ctl['enc_zero_ts']
+             self.arduino.zero_encoders()
+diff --git a/config.py b/config.py
+index f8789f2..ac144a8 100644
+--- a/config.py
++++ b/config.py
+@@ -324,6 +324,11 @@ SHOW_WINDOW = os.environ.get(
+ DASHBOARD_HOST = os.environ.get('AGV_DASHBOARD_HOST', '0.0.0.0')
+ DASHBOARD_HTTP_PORT = int(os.environ.get('AGV_DASHBOARD_PORT', '5000'))
+ DASHBOARD_WS_PORT = int(os.environ.get('AGV_DASHBOARD_WS_PORT', '5001'))
++# Opt-in dashboard heartbeat. 0 (default) = off. > 0: if no open dashboard has
++# pinged /api/heartbeat for this many seconds while the motors are ON, the drive
++# loop switches them OFF (the same write STOP does). Use >= 3 s.
++UI_HEARTBEAT_S = float(os.environ.get('AGV_UI_HEARTBEAT_S', '0'))
++UI_SEEN_PATH = os.path.join(TELEMETRY_DIR, 'ui_seen')
+ 
+ # ── LiDAR obstacle safety (RPLIDAR A1/A2 / clones, 360° on /dev/ttyUSB0) ─
+ # Defaults give a 0.50 m hard e-stop, 1.00 m slow-down, 0.20 m/s slow speed.
+diff --git a/templates/dashboard.html b/templates/dashboard.html
+index abe5e06..645a689 100644
+--- a/templates/dashboard.html
++++ b/templates/dashboard.html
+@@ -1803,6 +1803,9 @@
+     fetch('/status', { cache: 'no-store' })
+       .then(r => r.json()).then(apply).catch(() => {});
+     startWebSocket();
++    // Heartbeat: lets the AGV switch itself OFF if this page goes away
++    // (only enforced when the server sets AGV_UI_HEARTBEAT_S).
++    setInterval(() => { fetch('/api/heartbeat', { method: 'POST', cache: 'no-store' }).catch(() => {}); }, 1000);
+ 
+     // ── Logs tab: live per-tick JSONL stream + latest recording timeline ──
+     // These are independent of the WebSocket loop (cursor-based HTTP polling),
+diff --git a/web.py b/web.py
+index 58705f4..765e1b9 100644
+--- a/web.py
++++ b/web.py
+@@ -36,7 +36,7 @@ from flask import Flask, Response, jsonify, make_response, render_template, requ
+ 
+ from config import (
+     CAM_PREVIEW_DEV, DASHBOARD_HOST, DASHBOARD_HTTP_PORT, DASHBOARD_WS_PORT,
+-    TELEMETRY_DIR,
++    TELEMETRY_DIR, UI_SEEN_PATH,
+ )
+ from control_state import (
+     LIDAR_CLAMPS, LIDAR_LIMITS, LIDAR_SLOW_GAP_M, MANUAL_STALE_S, ControlReader,
+@@ -1035,6 +1035,16 @@ def api_lidar():
+     })
+ 
+ 
++@flask_app.route('/api/heartbeat', methods=['POST'])
++def api_heartbeat():
++    """Open dashboards ping this; the drive loop reads the file's mtime."""
++    try:
++        Path(UI_SEEN_PATH).touch()
++    except OSError:
++        pass
++    return '', 204
++
++
+ @flask_app.route('/status', methods=['GET'])
+ def status():
+     payload = _read_status()
